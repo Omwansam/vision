@@ -1,0 +1,810 @@
+//////////////////////////////////////////////////////
+// GENERATOR & DATASOURCE
+//////////////////////////////////////////////////////
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+//////////////////////////////////////////////////////
+// ENUMS (FIXED VALUE SETS)
+// These restrict fields to predefined values
+//////////////////////////////////////////////////////
+
+enum UserRole {
+  admin
+  editor
+  procurement
+  finance
+}
+
+enum IdType {
+  national_id
+  drivers_license
+  passport
+  other
+}
+
+enum ContentStatus {
+  draft
+  published
+  archived
+}
+
+enum ContactSubject {
+  donation
+  volunteer
+  partnership
+  program
+  feedback
+  media
+  other
+}
+
+enum SubmissionStatus {
+  new
+  in_progress
+  resolved
+  archived
+}
+
+enum DonationType {
+  one_time
+  monthly
+}
+
+enum DonationStatus {
+  pending
+  processing
+  completed
+  failed
+  refunded
+  cancelled
+}
+
+enum PaymentProvider {
+  mpesa
+  stripe
+  paypal
+  bank_transfer
+  manual
+}
+
+enum Currency {
+  USD
+  KES
+  EUR
+  GBP
+}
+
+enum ProgramDesignation {
+  ecd
+  maternal
+  resilience
+  general
+}
+
+enum TenderStatus {
+  open
+  closed
+  awarded
+  cancelled
+}
+
+enum TenderCategory {
+  goods
+  works
+  services
+}
+
+enum DocumentCategory {
+  impact
+  financial
+  governance
+  tender
+  legal
+  other
+}
+
+enum MediaType {
+  image
+  document
+  video
+  other
+}
+
+enum NewsletterStatus {
+  subscribed
+  unsubscribed
+  bounced
+}
+
+enum BidStatus {
+  submitted
+  under_review
+  shortlisted
+  accepted
+  rejected
+}
+
+enum ConcernStatus {
+  received
+  investigating
+  resolved
+  closed
+}
+
+enum LegalPageType {
+  privacy
+  terms
+}
+
+enum PartnerType {
+  government
+  foundation
+  research
+  community
+  international
+  corporate
+  other
+}
+
+enum TestimonialType {
+  community
+  donor
+  volunteer
+  partner
+  other
+}
+
+enum VolunteerRole {
+  food_distribution
+  community_liaison
+  logistics_support
+  impact_documentation
+  translation
+  administration
+  other
+}
+
+enum PartnershipType {
+  corporate
+  supply_chain
+  technology
+  research
+  advocacy
+  other
+}
+
+enum AuditAction {
+  created
+  updated
+  published
+  closed
+  awarded
+  document_uploaded
+  bid_received
+  status_changed
+}
+
+//////////////////////////////////////////////////////
+// AUTH & ADMIN USERS
+// Staff accounts for CMS, procurement, finance
+//////////////////////////////////////////////////////
+
+model User {
+  id        String    @id @default(cuid())
+  name      String
+  email     String    @unique
+  password  String
+  role      UserRole  @default(editor)
+  dob       DateTime?
+  country   String?
+  idType    IdType?
+  idNumber  String?
+  isActive  Boolean   @default(true)
+  lastLogin DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  newsArticles          NewsArticle[]
+  programsCreated       Program[]              @relation("ProgramCreatedBy")
+  programsUpdated       Program[]              @relation("ProgramUpdatedBy")
+  tendersCreated        Tender[]               @relation("TenderCreatedBy")
+  tendersUpdated        Tender[]               @relation("TenderUpdatedBy")
+  transparencyDocuments TransparencyDocument[]
+  legalPagesUpdated     LegalPage[]
+  mediaUploads          Media[]
+  tenderAuditLogs       TenderAuditLog[]
+  submissionNotes       SubmissionNote[]
+
+  @@index([role])
+  @@index([isActive])
+}
+
+//////////////////////////////////////////////////////
+// SITE SETTINGS & GLOBAL CONTENT
+// Org info, mission, contact details (replaces site.js)
+//////////////////////////////////////////////////////
+
+model SiteSettings {
+  id           String   @id @default("site")
+  name         String   @default("Vision Mentors Group")
+  shortName    String   @default("VMG")
+  tagline      String?
+  description  String?  @db.Text
+  email        String?
+  tendersEmail String?
+  phone        String?
+  addressLine1 String?
+  addressLine2 String?
+  officeHours  String?
+  mission      String?  @db.Text
+  vision       String?  @db.Text
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  socialLinks SocialLink[]
+}
+
+model SocialLink {
+  id             String   @id @default(cuid())
+  siteSettingsId String   @default("site")
+  label          String
+  href           String
+  sortOrder      Int      @default(0)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  siteSettings SiteSettings @relation(fields: [siteSettingsId], references: [id], onDelete: Cascade)
+
+  @@index([siteSettingsId, sortOrder])
+}
+
+//////////////////////////////////////////////////////
+// PROGRAMS
+// Replaces programs.js — ECD, maternal health, resilience
+//////////////////////////////////////////////////////
+
+model Program {
+  id          String        @id @default(cuid())
+  slug        String        @unique
+  title       String
+  description String        @db.Text
+  imageUrl    String?
+  iconName    String?
+  status      ContentStatus @default(published)
+  sortOrder   Int           @default(0)
+  createdById String?
+  updatedById String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  createdBy User?          @relation("ProgramCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User?          @relation("ProgramUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  stats     ProgramStat[]
+  images    ProgramImage[]
+  donations Donation[]
+
+  @@index([status, sortOrder])
+}
+
+model ProgramStat {
+  id        String   @id @default(cuid())
+  programId String
+  label     String
+  value     String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  program Program @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  @@index([programId, sortOrder])
+}
+
+model ProgramImage {
+  id        String   @id @default(cuid())
+  programId String
+  url       String
+  altText   String?
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  program Program @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  @@index([programId, sortOrder])
+}
+
+//////////////////////////////////////////////////////
+// NEWS & ARTICLES
+// Replaces news.js — blog posts, announcements
+//////////////////////////////////////////////////////
+
+model NewsArticle {
+  id          String        @id @default(cuid())
+  slug        String        @unique
+  title       String
+  excerpt     String        @db.Text
+  body        String?       @db.Text
+  category    String
+  imageUrl    String?
+  status      ContentStatus @default(draft)
+  isFeatured  Boolean       @default(false)
+  publishedAt DateTime?
+  authorId    String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  author User? @relation(fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([status, publishedAt])
+  @@index([category])
+  @@index([isFeatured])
+}
+
+//////////////////////////////////////////////////////
+// GALLERY
+// Replaces galleryImages.js
+//////////////////////////////////////////////////////
+
+model GalleryImage {
+  id        String        @id @default(cuid())
+  publicId  String?       @unique
+  title     String
+  category  String
+  url       String
+  altText   String?
+  status    ContentStatus @default(published)
+  sortOrder Int           @default(0)
+  mediaId   String?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  media Media? @relation(fields: [mediaId], references: [id], onDelete: SetNull)
+
+  @@index([category, status])
+  @@index([sortOrder])
+}
+
+//////////////////////////////////////////////////////
+// IMPACT METRICS
+// Replaces impactHighlights + Impact.jsx outcomes
+//////////////////////////////////////////////////////
+
+model ImpactHighlight {
+  id        String   @id @default(cuid())
+  value     String
+  label     String
+  year      Int?
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive, sortOrder])
+}
+
+model ProgramOutcome {
+  id        String   @id @default(cuid())
+  program   String
+  metric    String
+  detail    String   @db.Text
+  year      Int?
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([year, isActive])
+}
+
+//////////////////////////////////////////////////////
+// TRANSPARENCY
+// Fund allocation + downloadable reports
+//////////////////////////////////////////////////////
+
+model FundAllocation {
+  id         String   @id @default(cuid())
+  category   String
+  percentage Decimal  @db.Decimal(5, 2)
+  year       Int
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([year, category])
+  @@index([year, sortOrder])
+}
+
+model TransparencyDocument {
+  id           String           @id @default(cuid())
+  title        String
+  category     DocumentCategory
+  year         Int?
+  description  String?          @db.Text
+  fileUrl      String?
+  fileSize     Int?
+  mimeType     String?
+  isPublic     Boolean          @default(true)
+  status       ContentStatus    @default(published)
+  mediaId      String?
+  uploadedById String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  media      Media? @relation(fields: [mediaId], references: [id], onDelete: SetNull)
+  uploadedBy User?  @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@index([category, year])
+  @@index([status])
+}
+
+//////////////////////////////////////////////////////
+// LEGAL PAGES
+// Privacy, Terms — optional CMS content
+//////////////////////////////////////////////////////
+
+model LegalPage {
+  id          String        @id @default(cuid())
+  type        LegalPageType @unique
+  title       String
+  content     String        @db.Text
+  lastUpdated DateTime      @default(now())
+  updatedById String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  updatedBy User? @relation(fields: [updatedById], references: [id], onDelete: SetNull)
+}
+
+//////////////////////////////////////////////////////
+// PARTNERS & TESTIMONIALS
+// Replaces partners.js and testimonials.js
+//////////////////////////////////////////////////////
+
+model Partner {
+  id        String      @id @default(cuid())
+  name      String
+  type      PartnerType
+  logoUrl   String?
+  website   String?
+  sortOrder Int         @default(0)
+  isActive  Boolean     @default(true)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  @@index([isActive, sortOrder])
+}
+
+model Testimonial {
+  id        String          @id @default(cuid())
+  quote     String          @db.Text
+  name      String
+  role      String?
+  type      TestimonialType @default(other)
+  imageUrl  String?
+  sortOrder Int             @default(0)
+  isActive  Boolean         @default(true)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  @@index([isActive, sortOrder])
+}
+
+//////////////////////////////////////////////////////
+// TENDERS & PROCUREMENT
+// Replaces tenders.js — open/closed/awarded tenders
+//////////////////////////////////////////////////////
+
+model Tender {
+  id          String         @id @default(cuid())
+  referenceId String         @unique
+  title       String
+  description String         @db.Text
+  category    TenderCategory
+  status      TenderStatus   @default(open)
+  publishedAt DateTime
+  deadline    DateTime
+  location    String?
+  budgetMin   Decimal?       @db.Decimal(14, 2)
+  budgetMax   Decimal?       @db.Decimal(14, 2)
+  budgetLabel String?
+  currency    Currency       @default(KES)
+  awardedTo   String?
+  awardedAt   DateTime?
+  createdById String?
+  updatedById String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  createdBy User?            @relation("TenderCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User?            @relation("TenderUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  documents TenderDocument[]
+  bids      TenderBid[]
+  auditLogs TenderAuditLog[]
+
+  @@index([status, deadline])
+  @@index([publishedAt])
+}
+
+model TenderDocument {
+  id          String   @id @default(cuid())
+  tenderId    String
+  title       String
+  description String?
+  fileUrl     String
+  fileSize    Int?
+  mimeType    String?
+  isPublic    Boolean  @default(false)
+  mediaId     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tender Tender @relation(fields: [tenderId], references: [id], onDelete: Cascade)
+  media  Media? @relation(fields: [mediaId], references: [id], onDelete: SetNull)
+
+  @@index([tenderId])
+}
+
+model TenderBid {
+  id                   String    @id @default(cuid())
+  tenderId             String
+  companyName          String
+  contactName          String
+  email                String
+  phone                String?
+  registrationNo       String?
+  kraPin               String?
+  technicalProposalUrl String?
+  financialProposalUrl String?
+  status               BidStatus @default(submitted)
+  submittedAt          DateTime  @default(now())
+  reviewedAt           DateTime?
+  notes                String?   @db.Text
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  tender Tender @relation(fields: [tenderId], references: [id], onDelete: Cascade)
+
+  @@index([tenderId, status])
+  @@index([email])
+}
+
+model TenderAlertSubscription {
+  id             String    @id @default(cuid())
+  email          String    @unique
+  name           String?
+  companyName    String?
+  isActive       Boolean   @default(true)
+  subscribedAt   DateTime  @default(now())
+  unsubscribedAt DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([isActive])
+}
+
+model TenderAuditLog {
+  id        String      @id @default(cuid())
+  tenderId  String
+  userId    String?
+  action    AuditAction
+  details   Json?
+  createdAt DateTime    @default(now())
+
+  tender Tender @relation(fields: [tenderId], references: [id], onDelete: Cascade)
+  user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([tenderId, createdAt])
+}
+
+//////////////////////////////////////////////////////
+// FORM SUBMISSIONS
+// Contact, volunteer, partnership, concerns
+//////////////////////////////////////////////////////
+
+model ContactSubmission {
+  id                 String           @id @default(cuid())
+  referenceCode      String           @unique @default(cuid())
+  fullName           String
+  email              String
+  phone              String?
+  subject            ContactSubject
+  message            String           @db.Text
+  subscribeToUpdates Boolean          @default(false)
+  status             SubmissionStatus @default(new)
+  ipAddress          String?
+  userAgent          String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  notes SubmissionNote[]
+
+  @@index([status, createdAt])
+  @@index([email])
+  @@index([subject])
+}
+
+model VolunteerApplication {
+  id            String           @id @default(cuid())
+  referenceCode String           @unique @default(cuid())
+  fullName      String
+  email         String
+  phone         String?
+  preferredRole VolunteerRole?
+  availability  String?          @db.Text
+  message       String?          @db.Text
+  status        SubmissionStatus @default(new)
+  ipAddress     String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  notes SubmissionNote[]
+
+  @@index([status, createdAt])
+  @@index([email])
+}
+
+model PartnershipInquiry {
+  id               String           @id @default(cuid())
+  referenceCode    String           @unique @default(cuid())
+  organizationName String
+  contactName      String
+  email            String
+  phone            String?
+  partnershipType  PartnershipType?
+  vision           String           @db.Text
+  status           SubmissionStatus @default(new)
+  ipAddress        String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  notes SubmissionNote[]
+
+  @@index([status, createdAt])
+  @@index([email])
+}
+
+model ConcernSubmission {
+  id            String        @id @default(cuid())
+  referenceCode String        @unique @default(cuid())
+  isAnonymous   Boolean       @default(false)
+  fullName      String?
+  email         String?
+  phone         String?
+  programArea   String?
+  message       String        @db.Text
+  status        ConcernStatus @default(received)
+  ipAddress     String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  notes SubmissionNote[]
+
+  @@index([status, createdAt])
+}
+
+model SubmissionNote {
+  id                     String   @id @default(cuid())
+  note                   String   @db.Text
+  authorId               String?
+  contactSubmissionId    String?
+  volunteerApplicationId String?
+  partnershipInquiryId   String?
+  concernSubmissionId    String?
+  createdAt              DateTime @default(now())
+
+  author               User?                 @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  contactSubmission    ContactSubmission?    @relation(fields: [contactSubmissionId], references: [id], onDelete: Cascade)
+  volunteerApplication VolunteerApplication? @relation(fields: [volunteerApplicationId], references: [id], onDelete: Cascade)
+  partnershipInquiry   PartnershipInquiry?   @relation(fields: [partnershipInquiryId], references: [id], onDelete: Cascade)
+  concernSubmission    ConcernSubmission?    @relation(fields: [concernSubmissionId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+}
+
+//////////////////////////////////////////////////////
+// NEWSLETTER
+// Replaces NewsletterSignup.jsx client-only state
+//////////////////////////////////////////////////////
+
+model NewsletterSubscriber {
+  id             String           @id @default(cuid())
+  email          String           @unique
+  status         NewsletterStatus @default(subscribed)
+  consentGiven   Boolean          @default(true)
+  consentAt      DateTime         @default(now())
+  source         String?
+  unsubscribedAt DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@index([status])
+}
+
+//////////////////////////////////////////////////////
+// DONATIONS & PAYMENTS
+// Replaces Donate.jsx mock submission
+//////////////////////////////////////////////////////
+
+model Donation {
+  id              String             @id @default(cuid())
+  referenceCode   String             @unique @default(cuid())
+  donorName       String?
+  donorEmail      String?
+  donorPhone      String?
+  amount          Decimal            @db.Decimal(14, 2)
+  currency        Currency           @default(KES)
+  type            DonationType       @default(one_time)
+  designation     ProgramDesignation @default(general)
+  programId       String?
+  status          DonationStatus     @default(pending)
+  paymentProvider PaymentProvider?
+  paymentRef      String?
+  transactionId   String?
+  receiptSent     Boolean            @default(false)
+  receiptSentAt   DateTime?
+  metadata        Json?
+  ipAddress       String?
+  completedAt     DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  program     Program?            @relation(fields: [programId], references: [id], onDelete: SetNull)
+  webhookLogs PaymentWebhookLog[]
+
+  @@index([status, createdAt])
+  @@index([donorEmail])
+  @@index([paymentRef])
+  @@index([referenceCode])
+}
+
+model PaymentWebhookLog {
+  id           String          @id @default(cuid())
+  donationId   String?
+  provider     PaymentProvider
+  eventType    String
+  payload      Json
+  processed    Boolean         @default(false)
+  errorMessage String?
+  receivedAt   DateTime        @default(now())
+
+  donation Donation? @relation(fields: [donationId], references: [id], onDelete: SetNull)
+
+  @@index([provider, receivedAt])
+  @@index([donationId])
+}
+
+//////////////////////////////////////////////////////
+// MEDIA & FILE STORAGE
+// Central uploads for gallery, news, tenders, reports
+//////////////////////////////////////////////////////
+
+model Media {
+  id           String    @id @default(cuid())
+  publicId     String?   @unique
+  filename     String
+  originalName String?
+  url          String
+  mimeType     String?
+  fileSize     Int?
+  type         MediaType @default(image)
+  altText      String?
+  uploadedById String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  uploadedBy            User?                  @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+  galleryImages         GalleryImage[]
+  transparencyDocuments TransparencyDocument[]
+  tenderDocuments       TenderDocument[]
+
+  @@index([type])
+  @@index([createdAt])
+}

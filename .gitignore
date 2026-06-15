@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+
+# Environment & secrets (keep *.example templates tracked)
+.env
+.env.*
+!.env.example
+
+# Backend sensitive seed data (copy from seed.example.js locally)
+BACKEND/prisma/seed.js
+
+# Build output
+dist/
+dist-ssr/
+build/
+
+# Prisma generated output
+BACKEND/generated/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Test coverage
+coverage/
+
+# OS & editor
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
