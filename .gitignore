@@ -6,6 +6,9 @@ node_modules/
 .env.*
 !.env.example
 
+# Local Docker overrides (may contain secrets)
+docker-compose.override.yml
+
 # Backend sensitive seed data (copy from seed.example.js locally)
 BACKEND/prisma/seed.js
 
