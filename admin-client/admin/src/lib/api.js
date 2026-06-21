@@ -189,6 +189,31 @@ export const api = {
   getSite: call(mockApi.getSite, () => request('/site')),
 
   updateSite: call(mockApi.updateSite, (body) => request('/site', { method: 'PUT', body })),
+
+  getEmailStatus: call(mockApi.getEmailStatus, () => request('/notifications/status')),
+
+  getEmailLogs: call(mockApi.getEmailLogs, (params = {}) => {
+    const qs = new URLSearchParams(params).toString()
+    return request(`/notifications/logs${qs ? `?${qs}` : ''}`)
+  }),
+
+  getNewsletterCampaigns: call(mockApi.getNewsletterCampaigns, (params = {}) => {
+    const qs = new URLSearchParams(params).toString()
+    return request(`/notifications/campaigns${qs ? `?${qs}` : ''}`)
+  }),
+
+  getTenderAlertSubscribers: call(mockApi.getTenderAlertSubscribers, (params = {}) => {
+    const qs = new URLSearchParams(params).toString()
+    return request(`/notifications/tender-alerts${qs ? `?${qs}` : ''}`)
+  }),
+
+  sendNewsletter: call(mockApi.sendNewsletter, (body) =>
+    request('/notifications/newsletter/send', { method: 'POST', body }),
+  ),
+
+  sendTestEmail: call(mockApi.sendTestEmail, (to) =>
+    request('/notifications/test', { method: 'POST', body: { to } }),
+  ),
 }
 
 export { ApiError }

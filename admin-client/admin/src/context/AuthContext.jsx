@@ -12,8 +12,8 @@ const AuthContext = createContext(null)
 const USE_MOCK = import.meta.env.VITE_USE_MOCK_DATA === 'true'
 
 const ROLE_ACCESS = {
-  admin: ['dashboard', 'content', 'submissions', 'tenders', 'donations', 'users', 'settings'],
-  editor: ['dashboard', 'content', 'submissions'],
+  admin: ['dashboard', 'content', 'submissions', 'tenders', 'donations', 'users', 'settings', 'notifications'],
+  editor: ['dashboard', 'content', 'submissions', 'notifications'],
   procurement: ['dashboard', 'tenders'],
   finance: ['dashboard', 'donations'],
 }

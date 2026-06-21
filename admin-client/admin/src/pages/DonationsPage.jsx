@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Heart, CheckCircle, Clock } from 'lucide-react'
 import { api } from '@/lib/api'
 import { formatCurrency, formatDateTime } from '@/lib/utils'
-import { Alert, EmptyState, LoadingSpinner, PageHeader } from '@/components/ui/Common'
+import { Alert, EmptyState, LoadingSpinner, PageHeader, StatCard } from '@/components/ui/Common'
 import { Select } from '@/components/ui/Input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Pagination } from '@/components/ui/Table'
 
@@ -9,6 +10,7 @@ const STATUS_OPTIONS = ['pending', 'processing', 'completed', 'failed', 'refunde
 
 export default function DonationsPage() {
   const [items, setItems] = useState([])
+  const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [pages, setPages] = useState(1)
   const [loading, setLoading] = useState(true)
@@ -21,6 +23,7 @@ export default function DonationsPage() {
       const res = await api.getDonations({ page, limit: 20 })
       setItems(res.data)
       setPages(res.pages)
+      setTotal(res.total)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -37,9 +40,21 @@ export default function DonationsPage() {
     load()
   }
 
+  const completed = items.filter((d) => d.status === 'completed').length
+  const pending = items.filter((d) => d.status === 'pending').length
+  const totalAmount = items.reduce((sum, d) => sum + (d.status === 'completed' ? d.amount : 0), 0)
+
   return (
     <div>
       <PageHeader title="Donations" description="Review donation records and payment status." />
+
+      {!loading && items.length > 0 && (
+        <div className="mb-6 grid gap-4 sm:grid-cols-3">
+          <StatCard title="Total records" value={total} icon={Heart} color="pink" />
+          <StatCard title="Completed (page)" value={completed} icon={CheckCircle} color="green" subtitle={`${pending} pending on this page`} />
+          <StatCard title="Completed amount (page)" value={formatCurrency(totalAmount)} icon={Clock} color="blue" />
+        </div>
+      )}
 
       {error && <Alert className="mb-4">{error}</Alert>}
       {loading ? (

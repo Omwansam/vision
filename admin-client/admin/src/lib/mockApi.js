@@ -335,4 +335,73 @@ export const mockApi = {
     })
     return { success: true, data: updated }
   },
+
+  getEmailStatus() {
+    return {
+      success: true,
+      data: { configured: true, from: 'noreply@visionmentorsgroup.org' },
+    }
+  },
+
+  getEmailLogs(params = {}) {
+    return paginate(getStore().emailLogs || [], params)
+  },
+
+  getNewsletterCampaigns(params = {}) {
+    return paginate(getStore().campaigns || [], params)
+  },
+
+  getTenderAlertSubscribers(params = {}) {
+    const { active } = params
+    let items = getStore().tenderAlerts || []
+    if (active === 'true') items = items.filter((s) => s.isActive)
+    else if (active === 'false') items = items.filter((s) => !s.isActive)
+    return paginate(items, params)
+  },
+
+  sendNewsletter(body) {
+    const subscribers = getStore().newsletter.filter((s) => s.status === 'subscribed')
+    const campaign = {
+      id: uid('camp'),
+      subject: body.subject,
+      status: 'sent',
+      sentCount: subscribers.length,
+      totalRecipients: subscribers.length,
+      createdAt: now(),
+    }
+    const logs = subscribers.map((s) => ({
+      id: uid('email'),
+      recipient: s.email,
+      type: 'newsletter',
+      status: 'sent',
+      subject: body.subject,
+      createdAt: now(),
+    }))
+    updateStore((s) => ({
+      ...s,
+      campaigns: [campaign, ...(s.campaigns || [])],
+      emailLogs: [...logs, ...(s.emailLogs || [])],
+    }))
+    return {
+      success: true,
+      message: `Newsletter sent to ${subscribers.length} subscriber(s)`,
+      data: { sent: subscribers.length },
+    }
+  },
+
+  sendTestEmail(to) {
+    const log = {
+      id: uid('email'),
+      recipient: to,
+      type: 'test',
+      status: 'sent',
+      subject: 'VMG Admin Test Email',
+      createdAt: now(),
+    }
+    updateStore((s) => ({
+      ...s,
+      emailLogs: [log, ...(s.emailLogs || [])],
+    }))
+    return { success: true, message: 'Test email sent', data: { recipient: to } }
+  },
 }

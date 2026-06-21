@@ -1,6 +1,7 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from '@/context/AuthContext'
-import { ProtectedRoute } from '@/components/ProtectedRoute'
+import { ToastProvider } from '@/components/ui/Toast'
+import { ProtectedRoute, GuestRoute, FallbackRoute } from '@/components/ProtectedRoute'
 import { AdminLayout } from '@/components/layout/AdminLayout'
 import Login from '@/pages/Login'
 import Dashboard from '@/pages/Dashboard'
@@ -23,14 +24,18 @@ import {
 import UsersPage from '@/pages/UsersPage'
 import UserFormPage from '@/pages/UserFormPage'
 import SettingsPage from '@/pages/SettingsPage'
+import NotificationsPage from '@/pages/NotificationsPage'
 import NotFound from '@/pages/NotFound'
 
 export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <ToastProvider>
         <Routes>
-          <Route path="/login" element={<Login />} />
+          <Route element={<GuestRoute />}>
+            <Route path="/login" element={<Login />} />
+          </Route>
 
           <Route element={<ProtectedRoute />}>
             <Route element={<AdminLayout />}>
@@ -51,6 +56,10 @@ export default function App() {
 
               <Route element={<ProtectedRoute section="settings" />}>
                 <Route path="settings" element={<SettingsPage />} />
+              </Route>
+
+              <Route element={<ProtectedRoute section="notifications" />}>
+                <Route path="notifications" element={<NotificationsPage />} />
               </Route>
 
               <Route element={<ProtectedRoute section="tenders" />}>
@@ -80,8 +89,9 @@ export default function App() {
             </Route>
           </Route>
 
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<FallbackRoute />} />
         </Routes>
+        </ToastProvider>
       </AuthProvider>
     </BrowserRouter>
   )

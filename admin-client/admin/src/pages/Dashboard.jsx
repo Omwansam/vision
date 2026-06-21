@@ -1,28 +1,22 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Newspaper, Inbox, Heart, FileText, Clock } from 'lucide-react'
+import {
+  Newspaper,
+  Inbox,
+  Heart,
+  FileText,
+  Clock,
+  Plus,
+  Mail,
+  Layers,
+  Settings,
+} from 'lucide-react'
 import { api } from '@/lib/api'
 import { formatDateTime } from '@/lib/utils'
 import { useAuth } from '@/context/AuthContext'
 import { Badge } from '@/components/ui/Badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
-import { LoadingSpinner } from '@/components/ui/Common'
-
-function StatCard({ title, value, icon: Icon, to }) {
-  const content = (
-    <Card className="transition-shadow hover:shadow-md">
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
-        <Icon className="h-4 w-4 text-muted-foreground" />
-      </CardHeader>
-      <CardContent>
-        <p className="text-3xl font-semibold">{value ?? '—'}</p>
-      </CardContent>
-    </Card>
-  )
-
-  return to ? <Link to={to}>{content}</Link> : content
-}
+import { LoadingSpinner, StatCard, QuickAction, WelcomeBanner } from '@/components/ui/Common'
 
 export default function Dashboard() {
   const { user, canAccess } = useAuth()
@@ -40,7 +34,13 @@ export default function Dashboard() {
           const news = await api.getNews({ limit: 5 })
           next.news = news.total
           news.data.forEach((a) =>
-            activity.push({ type: 'news', label: a.title, status: a.status, date: a.updatedAt || a.createdAt, to: '/news' }),
+            activity.push({
+              type: 'news',
+              label: a.title,
+              status: a.status,
+              date: a.updatedAt || a.createdAt,
+              to: '/news',
+            }),
           )
         }
         if (canAccess('submissions')) {
@@ -48,7 +48,13 @@ export default function Dashboard() {
           next.contacts = contacts.total
           const recentContacts = await api.getContacts({ limit: 3 })
           recentContacts.data.forEach((c) =>
-            activity.push({ type: 'contact', label: c.fullName, status: c.status, date: c.createdAt, to: '/submissions/contact' }),
+            activity.push({
+              type: 'contact',
+              label: c.fullName,
+              status: c.status,
+              date: c.createdAt,
+              to: '/submissions/contact',
+            }),
           )
         }
         if (canAccess('donations')) {
@@ -72,52 +78,78 @@ export default function Dashboard() {
     load()
   }, [canAccess])
 
+  const quickActions = [
+    canAccess('content') && { to: '/news/new', icon: Plus, label: 'New article', description: 'Publish news' },
+    canAccess('content') && { to: '/programs/new', icon: Layers, label: 'Add program', description: 'Create program page' },
+    canAccess('submissions') && { to: '/submissions/contact', icon: Inbox, label: 'View messages', description: 'Contact form' },
+    canAccess('notifications') && { to: '/notifications', icon: Mail, label: 'Send newsletter', description: 'Email subscribers' },
+    canAccess('settings') && { to: '/settings', icon: Settings, label: 'Site settings', description: 'Organization info' },
+  ].filter(Boolean)
+
   if (loading) return <LoadingSpinner />
 
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold">Welcome back, {user?.name?.split(' ')[0]}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Manage content, submissions, and operations for Vision Mentors Group.
-        </p>
-      </div>
+    <div className="space-y-8">
+      <WelcomeBanner name={user?.name} role={user?.role} />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {canAccess('content') && (
-          <StatCard title="News articles" value={stats.news} icon={Newspaper} to="/news" />
+          <StatCard title="News articles" value={stats.news} icon={Newspaper} to="/news" color="blue" />
         )}
         {canAccess('submissions') && (
-          <StatCard title="New contact messages" value={stats.contacts} icon={Inbox} to="/submissions/contact" />
+          <StatCard
+            title="New messages"
+            value={stats.contacts}
+            icon={Inbox}
+            to="/submissions/contact"
+            color="purple"
+            subtitle="Awaiting review"
+          />
         )}
         {canAccess('donations') && (
-          <StatCard title="Donations" value={stats.donations} icon={Heart} to="/donations" />
+          <StatCard title="Donations" value={stats.donations} icon={Heart} to="/donations" color="pink" />
         )}
         {canAccess('tenders') && (
-          <StatCard title="Tenders" value={stats.tenders} icon={FileText} to="/tenders" />
+          <StatCard title="Tenders" value={stats.tenders} icon={FileText} to="/tenders" color="orange" />
         )}
       </div>
 
+      {quickActions.length > 0 && (
+        <div>
+          <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted-foreground">Quick actions</h3>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+            {quickActions.map((action) => (
+              <QuickAction key={action.to} {...action} />
+            ))}
+          </div>
+        </div>
+      )}
+
       {recent.length > 0 && (
-        <Card className="mt-6">
-          <CardHeader>
+        <Card>
+          <CardHeader className="border-b border-border/60">
             <CardTitle className="flex items-center gap-2 text-base">
-              <Clock className="h-4 w-4" />
+              <Clock className="h-4 w-4 text-muted-foreground" />
               Recent activity
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-0">
             <ul className="divide-y divide-border">
               {recent.map((item, i) => (
                 <li key={`${item.type}-${i}`}>
-                  <Link to={item.to} className="flex items-center justify-between gap-4 py-3 hover:bg-muted/30 -mx-2 px-2 rounded-md">
-                    <div>
-                      <p className="text-sm font-medium">{item.label}</p>
+                  <Link
+                    to={item.to}
+                    className="flex items-center justify-between gap-4 px-6 py-4 transition-colors hover:bg-muted/40"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">{item.label}</p>
                       <p className="text-xs capitalize text-muted-foreground">{item.type}</p>
                     </div>
-                    <div className="flex items-center gap-3 text-right">
+                    <div className="flex shrink-0 items-center gap-3 text-right">
                       <Badge variant={item.status} />
-                      <span className="text-xs text-muted-foreground">{formatDateTime(item.date)}</span>
+                      <span className="hidden text-xs text-muted-foreground sm:inline">
+                        {formatDateTime(item.date)}
+                      </span>
                     </div>
                   </Link>
                 </li>

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '@/lib/api'
-import { Alert, LoadingSpinner, PageHeader } from '@/components/ui/Common'
+import { Alert, FormSection, LoadingSpinner, PageHeader } from '@/components/ui/Common'
 import { Button } from '@/components/ui/Button'
 import { Input, Label, Select, Textarea } from '@/components/ui/Input'
 
@@ -74,54 +74,68 @@ export default function ProgramFormPage() {
     <div>
       <PageHeader
         title={isEdit ? 'Edit program' : 'New program'}
+        description="Define a program page for the public website."
         actions={
-          <Link to="/programs" className="inline-flex h-9 items-center rounded-md border border-border px-4 text-sm hover:bg-muted">
-            Cancel
+          <Link to="/programs">
+            <Button variant="outline">Cancel</Button>
           </Link>
         }
       />
 
       {error && <Alert className="mb-4">{error}</Alert>}
 
-      <form onSubmit={handleSubmit} className="max-w-2xl space-y-4">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="title">Title</Label>
-            <Input id="title" required value={form.title} onChange={update('title')} />
+      <form onSubmit={handleSubmit} className="max-w-3xl space-y-6">
+        <FormSection title="Program details">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="title">Title</Label>
+              <Input id="title" required value={form.title} onChange={update('title')} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="slug">Slug</Label>
+              <Input id="slug" required value={form.slug} onChange={update('slug')} />
+            </div>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="slug">Slug</Label>
-            <Input id="slug" required value={form.slug} onChange={update('slug')} />
+          <div className="mt-4 space-y-2">
+            <Label htmlFor="description">Description</Label>
+            <Textarea id="description" required rows={5} value={form.description} onChange={update('description')} />
           </div>
-        </div>
+        </FormSection>
 
-        <div className="space-y-2">
-          <Label htmlFor="description">Description</Label>
-          <Textarea id="description" required rows={5} value={form.description} onChange={update('description')} />
-        </div>
+        <FormSection title="Media & publishing">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="space-y-2">
+              <Label htmlFor="imageUrl">Image URL</Label>
+              <Input id="imageUrl" value={form.imageUrl} onChange={update('imageUrl')} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="iconName">Icon name</Label>
+              <Input id="iconName" value={form.iconName} onChange={update('iconName')} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="status">Status</Label>
+              <Select id="status" value={form.status} onChange={update('status')}>
+                <option value="draft">Draft</option>
+                <option value="published">Published</option>
+                <option value="archived">Archived</option>
+              </Select>
+            </div>
+          </div>
+          {form.imageUrl && (
+            <div className="mt-4 overflow-hidden rounded-lg border border-border">
+              <img src={form.imageUrl} alt="Preview" className="h-40 w-full object-cover" />
+            </div>
+          )}
+        </FormSection>
 
-        <div className="grid gap-4 sm:grid-cols-3">
-          <div className="space-y-2">
-            <Label htmlFor="imageUrl">Image URL</Label>
-            <Input id="imageUrl" value={form.imageUrl} onChange={update('imageUrl')} />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="iconName">Icon name</Label>
-            <Input id="iconName" value={form.iconName} onChange={update('iconName')} />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="status">Status</Label>
-            <Select id="status" value={form.status} onChange={update('status')}>
-              <option value="draft">Draft</option>
-              <option value="published">Published</option>
-              <option value="archived">Archived</option>
-            </Select>
-          </div>
+        <div className="flex gap-3">
+          <Button type="submit" disabled={submitting}>
+            {submitting ? 'Saving…' : isEdit ? 'Save changes' : 'Create program'}
+          </Button>
+          <Button type="button" variant="outline" onClick={() => navigate('/programs')}>
+            Cancel
+          </Button>
         </div>
-
-        <Button type="submit" disabled={submitting}>
-          {submitting ? 'Saving…' : isEdit ? 'Save changes' : 'Create program'}
-        </Button>
       </form>
     </div>
   )

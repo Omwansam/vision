@@ -304,6 +304,58 @@ function buildSeedStore() {
         updatedAt: ts,
       },
     ],
+    emailLogs: [
+      {
+        id: uid('email'),
+        recipient: 'subscriber@example.com',
+        type: 'newsletter',
+        status: 'sent',
+        subject: 'March 2025 Program Update',
+        createdAt: ts,
+      },
+      {
+        id: uid('email'),
+        recipient: 'admin@vmg.local',
+        type: 'test',
+        status: 'sent',
+        subject: 'VMG Admin Test Email',
+        createdAt: ts,
+      },
+      {
+        id: uid('email'),
+        recipient: 'jane.w@example.com',
+        type: 'contact_confirmation',
+        status: 'sent',
+        subject: 'We received your message',
+        createdAt: ts,
+      },
+    ],
+    campaigns: [
+      {
+        id: uid('camp'),
+        subject: 'March 2025 Program Update',
+        status: 'sent',
+        sentCount: 2,
+        totalRecipients: 2,
+        createdAt: ts,
+      },
+    ],
+    tenderAlerts: [
+      {
+        id: uid('alert'),
+        email: 'procurement@example.org',
+        isActive: true,
+        subscribedAt: ts,
+        createdAt: ts,
+      },
+      {
+        id: uid('alert'),
+        email: 'vendor@company.ke',
+        isActive: true,
+        subscribedAt: ts,
+        createdAt: ts,
+      },
+    ],
     highlights: [
       { id: uid('hl'), value: '12,500+', label: 'Children supported through ECD programs', year: 2024, sortOrder: 0, isActive: true },
       { id: uid('hl'), value: '8,000+', label: 'Mothers reached with maternal health services', year: 2024, sortOrder: 1, isActive: true },

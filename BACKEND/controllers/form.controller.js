@@ -1,5 +1,6 @@
 const { prisma } = require('../config/db');
 const asyncHandler = require('../middleware/asyncHandler.middleware');
+const notifications = require('../services/notifications.service');
 
 function clientMeta(req) {
   return {
@@ -33,7 +34,10 @@ const submitContact = asyncHandler(async (req, res) => {
         consentGiven: true,
       },
     });
+    notifications.notifyNewsletterWelcome(submission.email);
   }
+
+  notifications.notifyContactSubmission(submission);
 
   res.status(201).json({
     success: true,
@@ -62,6 +66,8 @@ const subscribeNewsletter = asyncHandler(async (req, res) => {
     },
   });
 
+  notifications.notifyNewsletterWelcome(normalizedEmail);
+
   res.status(200).json({
     success: true,
     message: 'Subscribed successfully',
@@ -82,6 +88,8 @@ const submitVolunteer = asyncHandler(async (req, res) => {
       ...clientMeta(req),
     },
   });
+
+  notifications.notifyVolunteerApplication(application);
 
   res.status(201).json({
     success: true,
@@ -105,6 +113,8 @@ const submitPartnership = asyncHandler(async (req, res) => {
     },
   });
 
+  notifications.notifyPartnershipInquiry(inquiry);
+
   res.status(201).json({
     success: true,
     message: 'Partnership inquiry submitted',
@@ -126,6 +136,8 @@ const submitConcern = asyncHandler(async (req, res) => {
       ...clientMeta(req),
     },
   });
+
+  notifications.notifyConcernSubmission(concern);
 
   res.status(201).json({
     success: true,

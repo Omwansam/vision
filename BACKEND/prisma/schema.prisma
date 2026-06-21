@@ -123,6 +123,36 @@ enum NewsletterStatus {
   bounced
 }
 
+enum EmailNotificationType {
+  newsletter_welcome
+  newsletter_broadcast
+  tender_alert_welcome
+  tender_published
+  contact_confirmation
+  contact_admin
+  volunteer_confirmation
+  volunteer_admin
+  partnership_confirmation
+  partnership_admin
+  concern_admin
+  donation_receipt
+  test
+}
+
+enum EmailDeliveryStatus {
+  pending
+  sent
+  failed
+  skipped
+}
+
+enum NewsletterCampaignStatus {
+  draft
+  sending
+  sent
+  failed
+}
+
 enum BidStatus {
   submitted
   under_review
@@ -221,6 +251,8 @@ model User {
   mediaUploads          Media[]
   tenderAuditLogs       TenderAuditLog[]
   submissionNotes       SubmissionNote[]
+  newsletterCampaigns   NewsletterCampaign[]
+  emailNotifications    EmailNotification[]
 
   @@index([role])
   @@index([isActive])
@@ -528,6 +560,7 @@ model Tender {
   documents TenderDocument[]
   bids      TenderBid[]
   auditLogs TenderAuditLog[]
+  emailNotifications EmailNotification[]
 
   @@index([status, deadline])
   @@index([publishedAt])
@@ -586,6 +619,8 @@ model TenderAlertSubscription {
   unsubscribedAt DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
+
+  emailNotifications EmailNotification[]
 
   @@index([isActive])
 }
@@ -725,7 +760,64 @@ model NewsletterSubscriber {
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
 
+  emailNotifications EmailNotification[]
+
   @@index([status])
+}
+
+//////////////////////////////////////////////////////
+// EMAIL NOTIFICATIONS
+// Delivery log for transactional & campaign emails
+//////////////////////////////////////////////////////
+
+model NewsletterCampaign {
+  id             String                   @id @default(cuid())
+  subject        String
+  body           String                   @db.Text
+  status         NewsletterCampaignStatus @default(draft)
+  recipientCount Int                      @default(0)
+  sentCount      Int                      @default(0)
+  failedCount    Int                      @default(0)
+  sentById       String?
+  sentAt         DateTime?
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+
+  sentBy             User?               @relation(fields: [sentById], references: [id], onDelete: SetNull)
+  emailNotifications EmailNotification[]
+
+  @@index([status, createdAt])
+}
+
+model EmailNotification {
+  id                        String                 @id @default(cuid())
+  type                      EmailNotificationType
+  recipient                 String
+  subject                   String
+  status                    EmailDeliveryStatus    @default(pending)
+  messageId                 String?
+  errorMessage              String?                @db.Text
+  metadata                  Json?
+  campaignId                String?
+  newsletterSubscriberId    String?
+  tenderAlertSubscriptionId String?
+  donationId                String?
+  tenderId                  String?
+  sentById                  String?
+  sentAt                    DateTime?
+  createdAt                 DateTime               @default(now())
+
+  campaign                NewsletterCampaign?      @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  newsletterSubscriber    NewsletterSubscriber?    @relation(fields: [newsletterSubscriberId], references: [id], onDelete: SetNull)
+  tenderAlertSubscription TenderAlertSubscription? @relation(fields: [tenderAlertSubscriptionId], references: [id], onDelete: SetNull)
+  donation                Donation?                @relation(fields: [donationId], references: [id], onDelete: SetNull)
+  tender                  Tender?                  @relation(fields: [tenderId], references: [id], onDelete: SetNull)
+  sentBy                  User?                    @relation(fields: [sentById], references: [id], onDelete: SetNull)
+
+  @@index([type, createdAt])
+  @@index([recipient])
+  @@index([status])
+  @@index([campaignId])
 }
 
 //////////////////////////////////////////////////////
@@ -758,6 +850,7 @@ model Donation {
 
   program     Program?            @relation(fields: [programId], references: [id], onDelete: SetNull)
   webhookLogs PaymentWebhookLog[]
+  emailNotifications EmailNotification[]
 
   @@index([status, createdAt])
   @@index([donorEmail])

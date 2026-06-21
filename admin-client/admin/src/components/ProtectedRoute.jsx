@@ -9,7 +9,7 @@ export function ProtectedRoute({ section }) {
   if (loading) return <LoadingSpinner className="min-h-screen" />
 
   if (!user) {
-    return <Navigate to="/login" replace state={{ from: location.pathname }} />
+    return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />
   }
 
   if (section && !canAccess(section)) {
@@ -17,4 +17,27 @@ export function ProtectedRoute({ section }) {
   }
 
   return <Outlet />
+}
+
+export function GuestRoute() {
+  const { user, loading } = useAuth()
+  const location = useLocation()
+
+  if (loading) return <LoadingSpinner className="min-h-screen" />
+
+  if (user) {
+    const from = location.state?.from
+    const destination = from && from !== '/login' ? from : '/'
+    return <Navigate to={destination} replace />
+  }
+
+  return <Outlet />
+}
+
+export function FallbackRoute() {
+  const { user, loading } = useAuth()
+
+  if (loading) return <LoadingSpinner className="min-h-screen" />
+
+  return <Navigate to={user ? '/' : '/login'} replace />
 }

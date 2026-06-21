@@ -59,17 +59,17 @@ export default function GalleryPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {items.map((item) => (
-            <div key={item.id} className="overflow-hidden rounded-lg border border-border bg-card">
-              <img src={item.url} alt={item.altText || item.title} className="h-40 w-full object-cover" />
-              <div className="p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="font-medium">{item.title}</p>
-                    <p className="text-sm text-muted-foreground">{item.category}</p>
-                  </div>
+            <div key={item.id} className="group overflow-hidden rounded-xl border border-border bg-card shadow-sm transition-all hover:border-primary/20 hover:shadow-md">
+              <div className="relative overflow-hidden">
+                <img src={item.url} alt={item.altText || item.title} className="h-44 w-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                <div className="absolute right-2 top-2">
                   <Badge variant={item.status} />
                 </div>
-                <div className="mt-3 flex gap-1">
+              </div>
+              <div className="p-4">
+                <p className="font-medium">{item.title}</p>
+                <p className="text-sm text-muted-foreground">{item.category}</p>
+                <div className="mt-3 flex gap-1 border-t border-border pt-3">
                   <Link to={`/gallery/${item.id}/edit`} className="inline-flex h-8 items-center gap-1 rounded-md px-2 text-sm hover:bg-muted">
                     <Pencil className="h-4 w-4" />
                     Edit

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '@/lib/api'
-import { Alert, LoadingSpinner, PageHeader } from '@/components/ui/Common'
+import { Alert, FormSection, LoadingSpinner, PageHeader } from '@/components/ui/Common'
 import { Button } from '@/components/ui/Button'
 import { Input, Label, Select, Textarea } from '@/components/ui/Input'
 
@@ -84,67 +84,86 @@ export default function NewsFormPage() {
     <div>
       <PageHeader
         title={isEdit ? 'Edit article' : 'New article'}
+        description={isEdit ? 'Update this news article.' : 'Create a new news article or announcement.'}
         actions={
-          <Link
-            to="/news"
-            className="inline-flex h-9 items-center justify-center rounded-md border border-border bg-background px-4 text-sm font-medium hover:bg-muted"
-          >
-            Cancel
+          <Link to="/news">
+            <Button variant="outline">Cancel</Button>
           </Link>
         }
       />
 
       {error && <Alert className="mb-4">{error}</Alert>}
 
-      <form onSubmit={handleSubmit} className="max-w-2xl space-y-4">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="title">Title</Label>
-            <Input id="title" required value={form.title} onChange={update('title')} />
+      <form onSubmit={handleSubmit} className="max-w-3xl space-y-6">
+        <FormSection title="Basic information" description="Title, slug, and summary shown in listings.">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="title">Title</Label>
+              <Input id="title" required value={form.title} onChange={update('title')} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="slug">Slug</Label>
+              <Input id="slug" required value={form.slug} onChange={update('slug')} />
+            </div>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="slug">Slug</Label>
-            <Input id="slug" required value={form.slug} onChange={update('slug')} />
+          <div className="mt-4 space-y-2">
+            <Label htmlFor="excerpt">Excerpt</Label>
+            <Textarea id="excerpt" required value={form.excerpt} onChange={update('excerpt')} />
           </div>
+        </FormSection>
+
+        <FormSection title="Content" description="Full article body text.">
+          <div className="space-y-2">
+            <Label htmlFor="body">Body</Label>
+            <Textarea id="body" rows={10} value={form.body} onChange={update('body')} />
+          </div>
+        </FormSection>
+
+        <FormSection title="Publishing" description="Category, status, and featured image.">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="space-y-2">
+              <Label htmlFor="category">Category</Label>
+              <Input id="category" required value={form.category} onChange={update('category')} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="status">Status</Label>
+              <Select id="status" value={form.status} onChange={update('status')}>
+                <option value="draft">Draft</option>
+                <option value="published">Published</option>
+                <option value="archived">Archived</option>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="imageUrl">Image URL</Label>
+              <Input id="imageUrl" value={form.imageUrl} onChange={update('imageUrl')} />
+            </div>
+          </div>
+
+          {form.imageUrl && (
+            <div className="mt-4 overflow-hidden rounded-lg border border-border">
+              <img src={form.imageUrl} alt="Preview" className="h-40 w-full object-cover" />
+            </div>
+          )}
+
+          <label className="mt-4 flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              className="rounded border-border"
+              checked={form.isFeatured}
+              onChange={update('isFeatured')}
+            />
+            Featured article
+          </label>
+        </FormSection>
+
+        <div className="flex gap-3">
+          <Button type="submit" disabled={submitting}>
+            {submitting ? 'Saving…' : isEdit ? 'Save changes' : 'Create article'}
+          </Button>
+          <Button type="button" variant="outline" onClick={() => navigate('/news')}>
+            Cancel
+          </Button>
         </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="excerpt">Excerpt</Label>
-          <Textarea id="excerpt" required value={form.excerpt} onChange={update('excerpt')} />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="body">Body</Label>
-          <Textarea id="body" rows={8} value={form.body} onChange={update('body')} />
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-3">
-          <div className="space-y-2">
-            <Label htmlFor="category">Category</Label>
-            <Input id="category" required value={form.category} onChange={update('category')} />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="status">Status</Label>
-            <Select id="status" value={form.status} onChange={update('status')}>
-              <option value="draft">Draft</option>
-              <option value="published">Published</option>
-              <option value="archived">Archived</option>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="imageUrl">Image URL</Label>
-            <Input id="imageUrl" value={form.imageUrl} onChange={update('imageUrl')} />
-          </div>
-        </div>
-
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={form.isFeatured} onChange={update('isFeatured')} />
-          Featured article
-        </label>
-
-        <Button type="submit" disabled={submitting}>
-          {submitting ? 'Saving…' : isEdit ? 'Save changes' : 'Create article'}
-        </Button>
       </form>
     </div>
   )

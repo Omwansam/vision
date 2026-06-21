@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '@/lib/api'
-import { Alert, LoadingSpinner, PageHeader } from '@/components/ui/Common'
+import { Alert, FormSection, LoadingSpinner, PageHeader } from '@/components/ui/Common'
 import { Button } from '@/components/ui/Button'
 import { Input, Label, Select } from '@/components/ui/Input'
 
@@ -10,6 +10,13 @@ const emptyForm = {
   email: '',
   password: '',
   role: 'editor',
+}
+
+const roleDescriptions = {
+  admin: 'Full access to all sections',
+  editor: 'Content, submissions, and email',
+  procurement: 'Tenders only',
+  finance: 'Donations only',
 }
 
 export default function UserFormPage() {
@@ -70,46 +77,57 @@ export default function UserFormPage() {
     <div>
       <PageHeader
         title={isEdit ? 'Edit user' : 'New user'}
+        description="Create or update a staff account with role-based access."
         actions={
-          <Link to="/users" className="inline-flex h-9 items-center rounded-md border border-border px-4 text-sm hover:bg-muted">
-            Cancel
+          <Link to="/users">
+            <Button variant="outline">Cancel</Button>
           </Link>
         }
       />
 
       {error && <Alert className="mb-4">{error}</Alert>}
 
-      <form onSubmit={handleSubmit} className="max-w-md space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="name">Name</Label>
-          <Input id="name" required value={form.name} onChange={update('name')} />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
-          <Input id="email" type="email" required value={form.email} onChange={update('email')} />
-        </div>
-
-        {!isEdit && (
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <Input id="password" type="password" required={!isEdit} value={form.password} onChange={update('password')} />
+      <form onSubmit={handleSubmit} className="max-w-lg space-y-6">
+        <FormSection title="Account details">
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Full name</Label>
+              <Input id="name" required value={form.name} onChange={update('name')} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input id="email" type="email" required value={form.email} onChange={update('email')} />
+            </div>
+            {!isEdit && (
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input id="password" type="password" required={!isEdit} value={form.password} onChange={update('password')} />
+              </div>
+            )}
           </div>
-        )}
+        </FormSection>
 
-        <div className="space-y-2">
-          <Label htmlFor="role">Role</Label>
-          <Select id="role" value={form.role} onChange={update('role')}>
-            <option value="admin">Admin</option>
-            <option value="editor">Editor</option>
-            <option value="procurement">Procurement</option>
-            <option value="finance">Finance</option>
-          </Select>
+        <FormSection title="Role & permissions">
+          <div className="space-y-2">
+            <Label htmlFor="role">Role</Label>
+            <Select id="role" value={form.role} onChange={update('role')}>
+              <option value="admin">Admin</option>
+              <option value="editor">Editor</option>
+              <option value="procurement">Procurement</option>
+              <option value="finance">Finance</option>
+            </Select>
+            <p className="text-xs text-muted-foreground">{roleDescriptions[form.role]}</p>
+          </div>
+        </FormSection>
+
+        <div className="flex gap-3">
+          <Button type="submit" disabled={submitting}>
+            {submitting ? 'Saving…' : isEdit ? 'Save changes' : 'Create user'}
+          </Button>
+          <Button type="button" variant="outline" onClick={() => navigate('/users')}>
+            Cancel
+          </Button>
         </div>
-
-        <Button type="submit" disabled={submitting}>
-          {submitting ? 'Saving…' : isEdit ? 'Save changes' : 'Create user'}
-        </Button>
       </form>
     </div>
   )

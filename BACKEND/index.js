@@ -1,4 +1,5 @@
 const express = require('express');
+const path = require('path');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const config = require('./config/env');
@@ -20,6 +21,7 @@ const donationRouter = require('./routes/donation.routes');
 const partnerRouter = require('./routes/partner.routes');
 const testimonialRouter = require('./routes/testimonial.routes');
 const submissionRouter = require('./routes/submission.routes');
+const notificationRouter = require('./routes/notification.routes');
 
 const app = express();
 
@@ -43,6 +45,10 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(requestLogger);
+
+app.use('/favicon.ico', express.static(path.join(__dirname, 'public/favicon.svg')));
+app.use('/favicon.svg', express.static(path.join(__dirname, 'public/favicon.svg')));
+app.use('/branding', express.static(path.join(__dirname, 'public/branding')));
 
 app.get('/', (req, res) => {
   res.json({
@@ -75,6 +81,7 @@ app.use('/api/v1/donations', donationRouter);
 app.use('/api/v1/partners', partnerRouter);
 app.use('/api/v1/testimonials', testimonialRouter);
 app.use('/api/v1/submissions', submissionRouter);
+app.use('/api/v1/notifications', notificationRouter);
 
 app.use((req, res) => {
   res.status(404).json({

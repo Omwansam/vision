@@ -1,5 +1,6 @@
 const { prisma } = require('../config/db');
 const asyncHandler = require('../middleware/asyncHandler.middleware');
+const notifications = require('../services/notifications.service');
 
 function parsePagination(query, defaultLimit = 20) {
   const page = Math.max(1, parseInt(query.page, 10) || 1);
@@ -126,10 +127,24 @@ const updateDonation = asyncHandler(async (req, res) => {
   if (completedAt !== undefined) data.completedAt = completedAt ? new Date(completedAt) : null;
   if (status === 'completed' && !completedAt) data.completedAt = new Date();
 
+  const existing = await prisma.donation.findUnique({ where: { id: req.params.id } });
+  if (!existing) {
+    return res.status(404).json({ success: false, error: 'Donation not found' });
+  }
+
   const donation = await prisma.donation.update({
     where: { id: req.params.id },
     data,
   });
+
+  if (
+    status === 'completed'
+    && existing.status !== 'completed'
+    && donation.donorEmail
+    && !donation.receiptSent
+  ) {
+    notifications.notifyDonationReceipt(donation);
+  }
 
   res.status(200).json({ success: true, data: donation });
 });

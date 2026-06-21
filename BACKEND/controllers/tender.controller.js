@@ -1,5 +1,6 @@
 const { prisma } = require('../config/db');
 const asyncHandler = require('../middleware/asyncHandler.middleware');
+const notifications = require('../services/notifications.service');
 
 function parsePagination(query, defaultLimit = 20) {
   const page = Math.max(1, parseInt(query.page, 10) || 1);
@@ -105,6 +106,12 @@ const createTender = asyncHandler(async (req, res) => {
     },
   });
 
+  if (tender.status === 'open') {
+    notifications.notifyNewTender(tender).catch((err) => {
+      console.error('[email] tender alert on create:', err.message);
+    });
+  }
+
   res.status(201).json({ success: true, data: tender });
 });
 
@@ -136,6 +143,12 @@ const updateTender = asyncHandler(async (req, res) => {
         details: { from: existing.status, to: fields.status },
       },
     });
+
+    if (fields.status === 'open' && existing.status !== 'open') {
+      notifications.notifyNewTender(tender).catch((err) => {
+        console.error('[email] tender alert on status change:', err.message);
+      });
+    }
   }
 
   res.status(200).json({ success: true, data: tender });
@@ -208,6 +221,8 @@ const subscribeTenderAlerts = asyncHandler(async (req, res) => {
     update: { name, companyName, isActive: true, unsubscribedAt: null },
     create: { email: normalizedEmail, name, companyName },
   });
+
+  notifications.notifyTenderAlertWelcome(subscription);
 
   res.status(200).json({
     success: true,

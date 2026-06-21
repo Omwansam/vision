@@ -15,4 +15,18 @@ module.exports = {
   // Stripe payments for investor investments
   STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
   STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
+  // SMTP / email (nodemailer)
+  SMTP_HOST: process.env.SMTP_HOST,
+  SMTP_PORT: parseInt(process.env.SMTP_PORT, 10) || 587,
+  SMTP_SECURE: process.env.SMTP_SECURE === 'true',
+  SMTP_USER: process.env.SMTP_USER,
+  SMTP_PASS: process.env.SMTP_PASS,
+  SMTP_FROM: process.env.SMTP_FROM,
+  SMTP_FROM_NAME: process.env.SMTP_FROM_NAME || 'Vision Mentors Group',
+  /** Fallback inbox when site settings email is unset */
+  ADMIN_NOTIFICATION_EMAIL: process.env.ADMIN_NOTIFICATION_EMAIL,
+  /** Public website URL used in email content links */
+  WEBSITE_URL: process.env.WEBSITE_URL || 'http://localhost:5173',
+  /** Backend base URL for API links in emails (unsubscribe, etc.) */
+  BACKEND_URL: process.env.BACKEND_URL || 'http://localhost:5000',
 };

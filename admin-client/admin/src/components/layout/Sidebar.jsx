@@ -10,10 +10,11 @@ import {
   Inbox,
   Users,
   Settings,
-  LogOut,
+  Mail,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/context/AuthContext'
+import { SidebarBrand } from '@/components/ui/Logo'
 
 const navGroups = [
   {
@@ -50,14 +51,15 @@ const navGroups = [
   {
     label: 'Administration',
     items: [
+      { to: '/notifications', label: 'Email & Alerts', icon: Mail, section: 'notifications' },
       { to: '/users', label: 'Users', icon: Users, section: 'users' },
       { to: '/settings', label: 'Site Settings', icon: Settings, section: 'settings' },
     ],
   },
 ]
 
-export function Sidebar({ onNavigate }) {
-  const { user, logout, canAccess } = useAuth()
+export function Sidebar({ collapsed = false, onToggleCollapse, onNavigate }) {
+  const { canAccess } = useAuth()
 
   const visibleGroups = navGroups
     .map((group) => {
@@ -74,36 +76,45 @@ export function Sidebar({ onNavigate }) {
     .filter(Boolean)
 
   return (
-    <aside className="flex h-full w-64 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
-      <div className="border-b border-sidebar-border px-5 py-5">
-        <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Vision Mentors</p>
-        <h2 className="mt-1 text-lg font-semibold text-foreground">Admin Panel</h2>
+    <aside
+      className={cn(
+        'flex h-svh flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-[width] duration-200',
+        collapsed ? 'w-16' : 'w-64',
+      )}
+    >
+      <div className="shrink-0 border-b border-sidebar-border">
+        <SidebarBrand collapsed={collapsed} onToggleCollapse={onToggleCollapse} />
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 py-4">
+      <nav className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-2 py-4">
         {visibleGroups.map((group) => (
-          <div key={group.label} className="mb-5">
-            <p className="mb-2 px-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              {group.label}
-            </p>
-            <ul className="space-y-1">
+          <div key={group.label} className="mb-4">
+            {!collapsed && (
+              <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/80">
+                {group.label}
+              </p>
+            )}
+            {collapsed && <div className="mx-2 mb-2 border-b border-sidebar-border/60" />}
+            <ul className="space-y-0.5">
               {group.items.map(({ to, label, icon: Icon }) => (
                 <li key={to}>
                   <NavLink
                     to={to}
                     end={to === '/'}
                     onClick={onNavigate}
+                    title={collapsed ? label : undefined}
                     className={({ isActive }) =>
                       cn(
-                        'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                        'group flex items-center rounded-lg text-sm font-medium transition-all',
+                        collapsed ? 'justify-center px-2 py-2.5' : 'gap-3 px-3 py-2.5',
                         isActive
-                          ? 'bg-sidebar-primary text-sidebar-primary-foreground'
-                          : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                          ? 'bg-sidebar-primary text-sidebar-primary-foreground shadow-sm'
+                          : 'text-muted-foreground hover:bg-muted/80 hover:text-foreground',
                       )
                     }
                   >
-                    <Icon className="h-4 w-4 shrink-0" />
-                    {label}
+                    <Icon className="h-4 w-4 shrink-0 opacity-80 group-[.active]:opacity-100" />
+                    {!collapsed && <span className="truncate">{label}</span>}
                   </NavLink>
                 </li>
               ))}
@@ -111,21 +122,6 @@ export function Sidebar({ onNavigate }) {
           </div>
         ))}
       </nav>
-
-      <div className="border-t border-sidebar-border p-4">
-        <div className="mb-3 px-1">
-          <p className="truncate text-sm font-medium text-foreground">{user?.name}</p>
-          <p className="truncate text-xs capitalize text-muted-foreground">{user?.role}</p>
-        </div>
-        <button
-          type="button"
-          onClick={logout}
-          className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
-        >
-          <LogOut className="h-4 w-4" />
-          Sign out
-        </button>
-      </div>
     </aside>
   )
 }

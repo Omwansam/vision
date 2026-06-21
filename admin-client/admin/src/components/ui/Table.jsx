@@ -1,15 +1,16 @@
 import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/Button'
 
 export function Table({ className, ...props }) {
   return (
-    <div className="overflow-x-auto rounded-lg border border-border">
+    <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-sm">
       <table className={cn('w-full text-sm', className)} {...props} />
     </div>
   )
 }
 
 export function TableHead({ className, ...props }) {
-  return <thead className={cn('border-b border-border bg-muted/50', className)} {...props} />
+  return <thead className={cn('border-b border-border bg-muted/40', className)} {...props} />
 }
 
 export function TableBody({ className, ...props }) {
@@ -17,20 +18,20 @@ export function TableBody({ className, ...props }) {
 }
 
 export function TableRow({ className, ...props }) {
-  return <tr className={cn('hover:bg-muted/30 transition-colors', className)} {...props} />
+  return <tr className={cn('transition-colors hover:bg-muted/30', className)} {...props} />
 }
 
 export function TableHeader({ className, ...props }) {
   return (
     <th
-      className={cn('px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground', className)}
+      className={cn('px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground', className)}
       {...props}
     />
   )
 }
 
 export function TableCell({ className, ...props }) {
-  return <td className={cn('px-4 py-3 text-foreground', className)} {...props} />
+  return <td className={cn('px-4 py-3.5 text-foreground', className)} {...props} />
 }
 
 export function Pagination({ page, pages, onPageChange }) {
@@ -42,22 +43,12 @@ export function Pagination({ page, pages, onPageChange }) {
         Page {page} of {pages}
       </span>
       <div className="flex gap-2">
-        <button
-          type="button"
-          disabled={page <= 1}
-          onClick={() => onPageChange(page - 1)}
-          className="rounded-md border border-border px-3 py-1 disabled:opacity-50"
-        >
+        <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => onPageChange(page - 1)}>
           Previous
-        </button>
-        <button
-          type="button"
-          disabled={page >= pages}
-          onClick={() => onPageChange(page + 1)}
-          className="rounded-md border border-border px-3 py-1 disabled:opacity-50"
-        >
+        </Button>
+        <Button variant="outline" size="sm" disabled={page >= pages} onClick={() => onPageChange(page + 1)}>
           Next
-        </button>
+        </Button>
       </div>
     </div>
   )
