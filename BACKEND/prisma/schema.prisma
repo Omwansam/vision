@@ -277,6 +277,11 @@ model SiteSettings {
   officeHours  String?
   mission      String?  @db.Text
   vision       String?  @db.Text
+  heroImageUrl           String?
+  aboutImageUrl          String?
+  getInvolvedImage1Url   String?
+  getInvolvedImage2Url   String?
+  logoImageUrl           String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

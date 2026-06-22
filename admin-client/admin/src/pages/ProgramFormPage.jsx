@@ -6,6 +6,7 @@ import { mediaUrl } from '@/lib/mediaUrl'
 import { slugify } from '@/lib/utils'
 import { Alert, FormSection, LoadingSpinner, PageHeader } from '@/components/ui/Common'
 import { ImageUploadField } from '@/components/ui/ImageUploadField'
+import { ProgramImagesEditor } from '@/components/content/ProgramImagesEditor'
 import { useToast } from '@/components/ui/Toast'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
@@ -69,6 +70,7 @@ export default function ProgramFormPage() {
 
   const [form, setForm] = useState(emptyForm)
   const [imageFile, setImageFile] = useState(null)
+  const [carouselImages, setCarouselImages] = useState([])
   const [slugTouched, setSlugTouched] = useState(false)
   const [loading, setLoading] = useState(isEdit)
   const [submitting, setSubmitting] = useState(false)
@@ -101,6 +103,13 @@ export default function ProgramFormPage() {
           iconName: program.iconName || 'BookOpen',
           status: program.status,
         })
+        setCarouselImages(
+          (program.images || []).map((img) => ({
+            key: img.id,
+            url: img.url,
+            file: null,
+          })),
+        )
         setSlugTouched(true)
       } catch (err) {
         setError(err.message)
@@ -121,12 +130,29 @@ export default function ProgramFormPage() {
     })
   }
 
+  const uploadCarouselImages = async (items) => {
+    const urls = []
+    for (const item of items) {
+      if (item.file) {
+        const formData = new FormData()
+        formData.append('image', item.file)
+        const res = await api.uploadImage('programs', formData)
+        urls.push(res.data.url)
+      } else if (item.url) {
+        urls.push(item.url)
+      }
+    }
+    return urls
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setSubmitting(true)
     setError('')
 
     try {
+      const carouselUrls = await uploadCarouselImages(carouselImages)
+
       if (imageFile) {
         const formData = new FormData()
         formData.append('image', imageFile)
@@ -135,12 +161,14 @@ export default function ProgramFormPage() {
         formData.append('description', form.description)
         formData.append('iconName', form.iconName)
         formData.append('status', form.status)
+        formData.append('images', JSON.stringify(carouselUrls))
 
         if (isEdit) await api.updateProgram(id, formData)
         else await api.createProgram(formData)
       } else {
-        if (isEdit) await api.updateProgram(id, form)
-        else await api.createProgram(form)
+        const payload = { ...form, images: carouselUrls }
+        if (isEdit) await api.updateProgram(id, payload)
+        else await api.createProgram(payload)
       }
 
       toast({ message: isEdit ? 'Program updated.' : 'Program created.' })
@@ -210,6 +238,10 @@ export default function ProgramFormPage() {
               existingUrl={form.imageUrl}
               onExistingUrlChange={(value) => setForm((prev) => ({ ...prev, imageUrl: value }))}
             />
+
+            <div className="mt-6">
+              <ProgramImagesEditor images={carouselImages} onChange={setCarouselImages} />
+            </div>
 
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">

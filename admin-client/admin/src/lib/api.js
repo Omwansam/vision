@@ -235,7 +235,10 @@ export const api = {
 
   getSite: call(mockApi.getSite, () => request('/site')),
 
-  updateSite: call(mockApi.updateSite, (body) => request('/site', { method: 'PUT', body })),
+  updateSite: call(mockApi.updateSite, (body) => {
+    if (body instanceof FormData) return requestMultipart('/site', body, 'PUT')
+    return request('/site', { method: 'PUT', body })
+  }),
 
   getEmailStatus: call(mockApi.getEmailStatus, () => request('/notifications/status')),
 

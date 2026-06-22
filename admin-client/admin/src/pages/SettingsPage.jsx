@@ -17,8 +17,10 @@ import {
   Inbox,
   FileText,
   Heart,
+  Image,
 } from 'lucide-react'
 import { api } from '@/lib/api'
+import { mediaUrl } from '@/lib/mediaUrl'
 import { FormSection, LoadingSpinner, PageHeader } from '@/components/ui/Common'
 import { MiniStat } from '@/components/content/ContentToolbar'
 import { useToast } from '@/components/ui/Toast'
@@ -26,6 +28,7 @@ import { Tabs } from '@/components/ui/Tabs'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Input, Label, Textarea } from '@/components/ui/Input'
+import { ImageUploadField } from '@/components/ui/ImageUploadField'
 import { cn } from '@/lib/utils'
 
 function FieldHint({ children }) {
@@ -167,6 +170,13 @@ function SitePreview({ form, tab, emailStatus }) {
             </div>
           </div>
         )}
+
+        {tab === 'images' && form.heroImageUrl && (
+          <div className="overflow-hidden rounded-lg border border-border">
+            <img src={mediaUrl(form.heroImageUrl)} alt="Home hero preview" className="h-28 w-full object-cover" />
+            <p className="px-3 py-2 text-xs text-muted-foreground">Home hero preview</p>
+          </div>
+        )}
       </CardContent>
     </Card>
   )
@@ -244,9 +254,44 @@ function SocialLinksEditor({ links, onChange }) {
   )
 }
 
+const PAGE_IMAGE_FIELDS = [
+  {
+    urlKey: 'heroImageUrl',
+    fileKey: 'heroImage',
+    label: 'Home page hero',
+    hint: 'Large background photo on the homepage.',
+  },
+  {
+    urlKey: 'aboutImageUrl',
+    fileKey: 'aboutImage',
+    label: 'About page photo',
+    hint: 'Image beside “Our Story” on the About page.',
+  },
+  {
+    urlKey: 'getInvolvedImage1Url',
+    fileKey: 'getInvolvedImage1',
+    label: 'Get Involved — volunteers',
+    hint: 'Photo in the volunteer section.',
+  },
+  {
+    urlKey: 'getInvolvedImage2Url',
+    fileKey: 'getInvolvedImage2',
+    label: 'Get Involved — partnerships',
+    hint: 'Photo in the partnerships section.',
+  },
+  {
+    urlKey: 'logoImageUrl',
+    fileKey: 'logoImage',
+    label: 'Site logo',
+    hint: 'Logo shown in the public website navigation.',
+  },
+]
+
 export default function SettingsPage() {
   const { toast } = useToast()
   const [form, setForm] = useState(null)
+  const [imageFiles, setImageFiles] = useState({})
+  const [imagePreviews, setImagePreviews] = useState({})
   const [emailStatus, setEmailStatus] = useState(null)
   const [tab, setTab] = useState('general')
   const [loading, setLoading] = useState(true)
@@ -284,6 +329,20 @@ export default function SettingsPage() {
     setForm((prev) => ({ ...prev, socialLinks }))
   }
 
+  const setPageImageFile = (fileKey, file) => {
+    setImageFiles((prev) => ({ ...prev, [fileKey]: file }))
+    setImagePreviews((prev) => {
+      const next = { ...prev }
+      if (prev[fileKey]) URL.revokeObjectURL(prev[fileKey])
+      next[fileKey] = file ? URL.createObjectURL(file) : null
+      return next
+    })
+  }
+
+  const clearPageImageFile = (fileKey) => {
+    setPageImageFile(fileKey, null)
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setSubmitting(true)
@@ -298,7 +357,7 @@ export default function SettingsPage() {
           sortOrder: index,
         }))
 
-      const res = await api.updateSite({
+      const payload = {
         name: form.name,
         shortName: form.shortName,
         tagline: form.tagline,
@@ -311,13 +370,46 @@ export default function SettingsPage() {
         officeHours: form.officeHours,
         mission: form.mission,
         vision: form.vision,
+        heroImageUrl: form.heroImageUrl || '',
+        aboutImageUrl: form.aboutImageUrl || '',
+        getInvolvedImage1Url: form.getInvolvedImage1Url || '',
+        getInvolvedImage2Url: form.getInvolvedImage2Url || '',
+        logoImageUrl: form.logoImageUrl || '',
         socialLinks,
-      })
+      }
+
+      const hasUploads = PAGE_IMAGE_FIELDS.some(({ fileKey }) => imageFiles[fileKey])
+      let res
+
+      if (hasUploads) {
+        const formData = new FormData()
+        Object.entries(payload).forEach(([key, value]) => {
+          if (key === 'socialLinks') {
+            formData.append(key, JSON.stringify(value))
+          } else if (value !== undefined && value !== null) {
+            formData.append(key, value)
+          }
+        })
+        PAGE_IMAGE_FIELDS.forEach(({ fileKey }) => {
+          if (imageFiles[fileKey]) formData.append(fileKey, imageFiles[fileKey])
+        })
+        res = await api.updateSite(formData)
+      } else {
+        res = await api.updateSite(payload)
+      }
+
       setForm({
         ...res.data,
         socialLinks: res.data.socialLinks?.length
           ? res.data.socialLinks
           : [{ label: '', href: '', isActive: true }],
+      })
+      setImageFiles({})
+      setImagePreviews((prev) => {
+        Object.values(prev).forEach((url) => {
+          if (url) URL.revokeObjectURL(url)
+        })
+        return {}
       })
       toast({ message: 'Settings saved successfully.' })
     } catch (err) {
@@ -331,6 +423,7 @@ export default function SettingsPage() {
 
   const tabs = [
     { id: 'general', label: 'General' },
+    { id: 'images', label: 'Page images' },
     { id: 'contact', label: 'Contact' },
     { id: 'email', label: 'Email & alerts' },
     { id: 'social', label: 'Social links' },
@@ -395,6 +488,30 @@ export default function SettingsPage() {
                       onChange={update('description')}
                     />
                     <FieldHint>Appears in the footer and meta descriptions.</FieldHint>
+                  </div>
+                </FormSection>
+              )}
+
+              {tab === 'images' && (
+                <FormSection
+                  title="Public page photos"
+                  description="Hero, About, Get Involved, and navigation logo images served from the backend uploads folder."
+                >
+                  <div className="space-y-8">
+                    {PAGE_IMAGE_FIELDS.map(({ urlKey, fileKey, label, hint }) => (
+                      <ImageUploadField
+                        key={urlKey}
+                        label={label}
+                        hint={hint}
+                        file={imageFiles[fileKey] || null}
+                        previewSrc={imagePreviews[fileKey] || null}
+                        onFileChange={(file) => setPageImageFile(fileKey, file)}
+                        onClearFile={() => clearPageImageFile(fileKey)}
+                        existingUrl={form[urlKey] || ''}
+                        onExistingUrlChange={(value) => setForm((prev) => ({ ...prev, [urlKey]: value }))}
+                        allowUrlFallback={false}
+                      />
+                    ))}
                   </div>
                 </FormSection>
               )}

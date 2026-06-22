@@ -67,11 +67,22 @@ function dynamicImageUpload(req, res, next) {
 
 const newsUpload = createImageUpload('news');
 const programsUpload = createImageUpload('programs');
+const generalUpload = createImageUpload('general');
+
+const siteImagesUpload = generalUpload.fields([
+  { name: 'heroImage', maxCount: 1 },
+  { name: 'aboutImage', maxCount: 1 },
+  { name: 'getInvolvedImage1', maxCount: 1 },
+  { name: 'getInvolvedImage2', maxCount: 1 },
+  { name: 'logoImage', maxCount: 1 },
+]);
 
 module.exports = {
   galleryUpload,
   newsUpload,
   programsUpload,
+  generalUpload,
+  siteImagesUpload,
   createImageUpload,
   uploadFolderGuard,
   dynamicImageUpload,

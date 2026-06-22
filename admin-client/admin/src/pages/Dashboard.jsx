@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import { api } from '@/lib/api'
 import { formatDateTime, truncate } from '@/lib/utils'
+import { mediaUrl } from '@/lib/mediaUrl'
 import { useAuth } from '@/context/AuthContext'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
@@ -58,7 +59,7 @@ function ContentPreviewRow({ item, type }) {
     <Link to={to} className="flex items-center gap-3 rounded-lg p-2 transition-colors hover:bg-muted/50">
       <div className="h-11 w-14 shrink-0 overflow-hidden rounded-md bg-muted">
         {item.imageUrl ? (
-          <img src={item.imageUrl} alt="" className="h-full w-full object-cover" />
+          <img src={mediaUrl(item.imageUrl)} alt="" className="h-full w-full object-cover" />
         ) : (
           <div className="flex h-full items-center justify-center">
             {type === 'news' ? <Newspaper className="h-4 w-4 text-muted-foreground" /> : <Layers className="h-4 w-4 text-muted-foreground" />}

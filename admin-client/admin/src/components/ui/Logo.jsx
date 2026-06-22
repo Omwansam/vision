@@ -1,7 +1,8 @@
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { mediaUrl } from '@/lib/mediaUrl'
 
-const LOGO_SRC = '/branding/vmg-logo.jpg'
+const LOGO_SRC = '/uploads/general/vmg-logo.jpg'
 const LOGO_FALLBACK = '/placeholder-logo.svg'
 
 const imgSizes = {
@@ -23,7 +24,7 @@ export function Logo({
     return (
       <div className={cn('flex items-center justify-center', className)}>
         <img
-          src={LOGO_SRC}
+          src={mediaUrl(LOGO_SRC)}
           alt="Vision Mentors Group"
           className={cn('w-auto object-contain', imgClass)}
           onError={(e) => {
@@ -39,7 +40,7 @@ export function Logo({
       <div className={cn('flex flex-col items-center text-center', className)}>
         <div className="mb-3 flex h-14 w-full items-center justify-center rounded-xl border border-border/60 bg-white px-3 py-2 shadow-sm">
           <img
-            src={LOGO_SRC}
+            src={mediaUrl(LOGO_SRC)}
             alt="Vision Mentors Group"
             className="max-h-10 w-auto max-w-full object-contain"
             onError={(e) => {
@@ -61,7 +62,7 @@ export function Logo({
     <div className={cn('flex min-w-0 items-center gap-3', className)}>
       <div className="flex shrink-0 items-center justify-center rounded-lg border border-border/60 bg-white px-2 py-1.5 shadow-sm">
         <img
-          src={LOGO_SRC}
+          src={mediaUrl(LOGO_SRC)}
           alt="Vision Mentors Group"
           className={cn('w-auto object-contain', imgClass)}
           onError={(e) => {

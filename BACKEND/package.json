@@ -12,6 +12,8 @@
     "dev": "nodemon index.js",
     "postinstall": "prisma generate",
     "db:seed": "node prisma/seed.js",
+    "gallery:import": "node scripts/import-gallery.js",
+    "content:import": "node scripts/import-content.js",
     "db:validate": "prisma validate"
   },
   "prisma": {

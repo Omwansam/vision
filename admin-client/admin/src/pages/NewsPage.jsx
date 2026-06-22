@@ -181,7 +181,7 @@ export default function NewsPage() {
                     <div className="flex items-center gap-3">
                       <div className="h-12 w-16 shrink-0 overflow-hidden rounded-md bg-muted">
                         {item.imageUrl ? (
-                          <img src={item.imageUrl} alt="" className="h-full w-full object-cover" />
+                          <img src={mediaUrl(item.imageUrl)} alt="" className="h-full w-full object-cover" />
                         ) : (
                           <div className="flex h-full items-center justify-center">
                             <Newspaper className="h-4 w-4 text-muted-foreground" />
