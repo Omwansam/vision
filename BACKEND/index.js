@@ -22,6 +22,7 @@ const partnerRouter = require('./routes/partner.routes');
 const testimonialRouter = require('./routes/testimonial.routes');
 const submissionRouter = require('./routes/submission.routes');
 const notificationRouter = require('./routes/notification.routes');
+const uploadRouter = require('./routes/upload.routes');
 
 const app = express();
 
@@ -49,6 +50,7 @@ app.use(requestLogger);
 app.use('/favicon.ico', express.static(path.join(__dirname, 'public/favicon.svg')));
 app.use('/favicon.svg', express.static(path.join(__dirname, 'public/favicon.svg')));
 app.use('/branding', express.static(path.join(__dirname, 'public/branding')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.get('/', (req, res) => {
   res.json({
@@ -82,6 +84,7 @@ app.use('/api/v1/partners', partnerRouter);
 app.use('/api/v1/testimonials', testimonialRouter);
 app.use('/api/v1/submissions', submissionRouter);
 app.use('/api/v1/notifications', notificationRouter);
+app.use('/api/v1/uploads', uploadRouter);
 
 app.use((req, res) => {
   res.status(404).json({

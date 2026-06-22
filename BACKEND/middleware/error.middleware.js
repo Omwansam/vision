@@ -103,6 +103,20 @@ const errorHandler = (err, req, res, next) => {
         error.message = 'Invalid JSON format in request body';
     }
 
+    // Multer upload errors
+    else if (err.name === 'MulterError') {
+        error.statusCode = 400;
+        if (err.code === 'LIMIT_FILE_SIZE') {
+            error.message = 'Image must be 10MB or smaller';
+        } else {
+            error.message = err.message || 'File upload failed';
+        }
+    }
+    else if (err.message?.includes('Only image files are allowed')) {
+        error.statusCode = 400;
+        error.message = err.message;
+    }
+
     // Default fallback
     const statusCode = error.statusCode || err.status || 500;
     const isDev = config.NODE_ENV === 'development';

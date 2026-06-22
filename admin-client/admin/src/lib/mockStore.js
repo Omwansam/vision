@@ -381,6 +381,10 @@ function buildSeedStore() {
       officeHours: 'Monday – Friday, 9:00 AM – 5:00 PM EAT',
       mission: 'To partner with Kenyan communities through evidence-based education, health, and resilience programs.',
       vision: 'A Kenya where every child has a strong start and every community has the tools to thrive.',
+      socialLinks: [
+        { id: 'soc1', label: 'Facebook', href: 'https://facebook.com', isActive: true, sortOrder: 0 },
+        { id: 'soc2', label: 'LinkedIn', href: 'https://linkedin.com', isActive: true, sortOrder: 1 },
+      ],
     },
     users: DEFAULT_MOCK_USERS.map(({ id, name, email, role }) => ({
       id,

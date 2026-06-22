@@ -20,6 +20,10 @@ build/
 # Prisma generated output
 BACKEND/generated/
 
+# Uploaded media (keep folder structure)
+BACKEND/uploads/**/*
+!BACKEND/uploads/**/.gitkeep
+
 # Logs
 logs/
 *.log

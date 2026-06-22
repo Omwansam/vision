@@ -1,5 +1,8 @@
 const { prisma } = require('../config/db');
 const asyncHandler = require('../middleware/asyncHandler.middleware');
+const { buildStoredImagePath } = require('../utils/uploadPath');
+const { parseBool } = require('../utils/parseFormValue');
+const { createMediaRecord, removeStoredFile } = require('./upload.controller');
 
 function parsePagination(query, defaultLimit = 20) {
   const page = Math.max(1, parseInt(query.page, 10) || 1);
@@ -17,6 +20,27 @@ function paginatedResponse(data, total, page, limit) {
     pages: Math.ceil(total / limit) || 1,
     data,
   };
+}
+
+function parseNewsFields(body) {
+  const data = {};
+
+  if (body.slug !== undefined) data.slug = body.slug.trim();
+  if (body.title !== undefined) data.title = body.title.trim();
+  if (body.excerpt !== undefined) data.excerpt = body.excerpt.trim();
+  if (body.body !== undefined) data.body = body.body;
+  if (body.category !== undefined) data.category = body.category.trim();
+  if (body.imageUrl !== undefined) data.imageUrl = body.imageUrl?.trim() || null;
+  if (body.status !== undefined) data.status = body.status;
+
+  const isFeatured = parseBool(body.isFeatured);
+  if (isFeatured !== undefined) data.isFeatured = isFeatured;
+
+  if (body.publishedAt !== undefined) {
+    data.publishedAt = body.publishedAt ? new Date(body.publishedAt) : null;
+  }
+
+  return data;
 }
 
 const getNewsArticles = asyncHandler(async (req, res) => {
@@ -53,19 +77,35 @@ const getNewsBySlug = asyncHandler(async (req, res) => {
 });
 
 const createNewsArticle = asyncHandler(async (req, res) => {
-  const { slug, title, excerpt, body, category, imageUrl, status, isFeatured, publishedAt } = req.body;
+  const data = parseNewsFields(req.body);
+
+  if (req.file) {
+    await createMediaRecord(req.file, 'news', req.user.id);
+    data.imageUrl = buildStoredImagePath('news', req.file.filename);
+  }
+
+  if (!data.slug || !data.title || !data.excerpt || !data.category) {
+    return res.status(400).json({ success: false, error: 'slug, title, excerpt, and category are required' });
+  }
+
+  const status = data.status || 'draft';
+  const publishedAt = data.publishedAt !== undefined
+    ? data.publishedAt
+    : status === 'published'
+      ? new Date()
+      : null;
 
   const article = await prisma.newsArticle.create({
     data: {
-      slug,
-      title,
-      excerpt,
-      body,
-      category,
-      imageUrl,
-      status: status || 'draft',
-      isFeatured: isFeatured ?? false,
-      publishedAt: publishedAt ? new Date(publishedAt) : status === 'published' ? new Date() : null,
+      slug: data.slug,
+      title: data.title,
+      excerpt: data.excerpt,
+      body: data.body,
+      category: data.category,
+      imageUrl: data.imageUrl,
+      status,
+      isFeatured: data.isFeatured ?? false,
+      publishedAt,
       authorId: req.user.id,
     },
   });
@@ -74,11 +114,20 @@ const createNewsArticle = asyncHandler(async (req, res) => {
 });
 
 const updateNewsArticle = asyncHandler(async (req, res) => {
-  const { publishedAt, ...fields } = req.body;
-  const data = { ...fields };
+  const existing = await prisma.newsArticle.findUnique({ where: { id: req.params.id } });
+  if (!existing) {
+    return res.status(404).json({ success: false, error: 'Article not found' });
+  }
 
-  if (publishedAt !== undefined) {
-    data.publishedAt = publishedAt ? new Date(publishedAt) : null;
+  const data = parseNewsFields(req.body);
+
+  if (req.file) {
+    await createMediaRecord(req.file, 'news', req.user.id);
+    data.imageUrl = buildStoredImagePath('news', req.file.filename);
+
+    if (existing.imageUrl?.startsWith('/uploads/')) {
+      removeStoredFile(existing.imageUrl);
+    }
   }
 
   const article = await prisma.newsArticle.update({
@@ -90,7 +139,17 @@ const updateNewsArticle = asyncHandler(async (req, res) => {
 });
 
 const deleteNewsArticle = asyncHandler(async (req, res) => {
+  const existing = await prisma.newsArticle.findUnique({ where: { id: req.params.id } });
+  if (!existing) {
+    return res.status(404).json({ success: false, error: 'Article not found' });
+  }
+
   await prisma.newsArticle.delete({ where: { id: req.params.id } });
+
+  if (existing.imageUrl?.startsWith('/uploads/')) {
+    removeStoredFile(existing.imageUrl);
+  }
+
   res.status(200).json({ success: true, message: 'Article deleted' });
 });
 

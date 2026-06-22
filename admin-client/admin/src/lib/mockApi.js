@@ -120,6 +120,18 @@ export const mockApi = {
     return { success: true, message: 'Gallery image deleted' }
   },
 
+  uploadImage(folder) {
+    return {
+      success: true,
+      data: {
+        url: `/uploads/${folder}/mock-image-${Date.now()}.jpg`,
+        mediaId: uid('media'),
+        filename: `mock-image-${Date.now()}.jpg`,
+        originalName: 'upload.jpg',
+      },
+    }
+  },
+
   getImpact() {
     const store = getStore()
     return {
@@ -331,6 +343,13 @@ export const mockApi = {
     let updated
     updateStore((s) => {
       updated = { ...s.site, ...body }
+      if (Array.isArray(body.socialLinks)) {
+        updated.socialLinks = body.socialLinks.map((link, index) => ({
+          id: link.id || `soc-${index}`,
+          ...link,
+          sortOrder: link.sortOrder ?? index,
+        }))
+      }
       return { ...s, site: updated }
     })
     return { success: true, data: updated }

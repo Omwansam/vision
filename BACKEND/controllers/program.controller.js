@@ -1,10 +1,39 @@
 const { prisma } = require('../config/db');
 const asyncHandler = require('../middleware/asyncHandler.middleware');
+const { buildStoredImagePath } = require('../utils/uploadPath');
+const { parseIntField } = require('../utils/parseFormValue');
+const { createMediaRecord, removeStoredFile } = require('./upload.controller');
 
 const programInclude = {
   stats: { orderBy: { sortOrder: 'asc' } },
   images: { orderBy: { sortOrder: 'asc' } },
 };
+
+function parseProgramFields(body) {
+  const data = {};
+
+  if (body.slug !== undefined) data.slug = body.slug.trim();
+  if (body.title !== undefined) data.title = body.title.trim();
+  if (body.description !== undefined) data.description = body.description;
+  if (body.imageUrl !== undefined) data.imageUrl = body.imageUrl?.trim() || null;
+  if (body.iconName !== undefined) data.iconName = body.iconName;
+  if (body.status !== undefined) data.status = body.status;
+
+  const sortOrder = parseIntField(body.sortOrder);
+  if (sortOrder !== undefined) data.sortOrder = sortOrder;
+
+  return data;
+}
+
+function parseJsonField(value, fallback = undefined) {
+  if (value === undefined || value === null || value === '') return fallback;
+  if (Array.isArray(value)) return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return fallback;
+  }
+}
 
 const getPrograms = asyncHandler(async (req, res) => {
   const where = req.user ? {} : { status: 'published' };
@@ -35,32 +64,47 @@ const getProgramBySlug = asyncHandler(async (req, res) => {
 });
 
 const createProgram = asyncHandler(async (req, res) => {
-  const { slug, title, description, imageUrl, iconName, status, sortOrder, stats, images } = req.body;
+  const data = parseProgramFields(req.body);
+  const stats = parseJsonField(req.body.stats);
+  const images = parseJsonField(req.body.images);
+
+  if (req.file) {
+    await createMediaRecord(req.file, 'programs', req.user.id);
+    data.imageUrl = buildStoredImagePath('programs', req.file.filename);
+  }
+
+  if (!data.slug || !data.title || !data.description) {
+    return res.status(400).json({ success: false, error: 'slug, title, and description are required' });
+  }
 
   const program = await prisma.program.create({
     data: {
-      slug,
-      title,
-      description,
-      imageUrl,
-      iconName,
-      status: status || 'draft',
-      sortOrder: sortOrder ?? 0,
+      slug: data.slug,
+      title: data.title,
+      description: data.description,
+      imageUrl: data.imageUrl,
+      iconName: data.iconName,
+      status: data.status || 'draft',
+      sortOrder: data.sortOrder ?? 0,
       createdById: req.user.id,
       updatedById: req.user.id,
       stats: stats?.length
-        ? { create: stats.map((stat, index) => ({
-            label: stat.label || stat,
-            value: stat.value || stat,
-            sortOrder: stat.sortOrder ?? index,
-          })) }
+        ? {
+            create: stats.map((stat, index) => ({
+              label: stat.label || stat,
+              value: stat.value || stat,
+              sortOrder: stat.sortOrder ?? index,
+            })),
+          }
         : undefined,
       images: images?.length
-        ? { create: images.map((img, index) => ({
-            url: typeof img === 'string' ? img : img.url,
-            altText: typeof img === 'string' ? title : img.altText,
-            sortOrder: index,
-          })) }
+        ? {
+            create: images.map((img, index) => ({
+              url: typeof img === 'string' ? img : img.url,
+              altText: typeof img === 'string' ? data.title : img.altText,
+              sortOrder: index,
+            })),
+          }
         : undefined,
     },
     include: programInclude,
@@ -70,12 +114,28 @@ const createProgram = asyncHandler(async (req, res) => {
 });
 
 const updateProgram = asyncHandler(async (req, res) => {
-  const { stats, images, ...fields } = req.body;
+  const existing = await prisma.program.findUnique({ where: { id: req.params.id } });
+  if (!existing) {
+    return res.status(404).json({ success: false, error: 'Program not found' });
+  }
+
+  const data = parseProgramFields(req.body);
+  const stats = parseJsonField(req.body.stats);
+  const images = parseJsonField(req.body.images);
+
+  if (req.file) {
+    await createMediaRecord(req.file, 'programs', req.user.id);
+    data.imageUrl = buildStoredImagePath('programs', req.file.filename);
+
+    if (existing.imageUrl?.startsWith('/uploads/')) {
+      removeStoredFile(existing.imageUrl);
+    }
+  }
 
   const program = await prisma.program.update({
     where: { id: req.params.id },
     data: {
-      ...fields,
+      ...data,
       updatedById: req.user.id,
     },
     include: programInclude,
@@ -118,7 +178,17 @@ const updateProgram = asyncHandler(async (req, res) => {
 });
 
 const deleteProgram = asyncHandler(async (req, res) => {
+  const existing = await prisma.program.findUnique({ where: { id: req.params.id } });
+  if (!existing) {
+    return res.status(404).json({ success: false, error: 'Program not found' });
+  }
+
   await prisma.program.delete({ where: { id: req.params.id } });
+
+  if (existing.imageUrl?.startsWith('/uploads/')) {
+    removeStoredFile(existing.imageUrl);
+  }
+
   res.status(200).json({ success: true, message: 'Program deleted' });
 });
 

@@ -50,6 +50,27 @@ async function request(path, options = {}) {
   return data
 }
 
+async function requestMultipart(path, formData, method = 'POST') {
+  const headers = {}
+  const token = getToken()
+  if (token) headers.Authorization = `Bearer ${token}`
+
+  const res = await fetch(`${API_BASE}${path}`, {
+    method,
+    headers,
+    credentials: 'include',
+    body: formData,
+  })
+
+  const data = await res.json().catch(() => ({}))
+
+  if (!res.ok) {
+    throw new ApiError(data.error || data.message || 'Request failed', res.status)
+  }
+
+  return data
+}
+
 function useMock() {
   if (isMockSession()) {
     seedMockStore()
@@ -77,9 +98,15 @@ export const api = {
 
   getNewsBySlug: call(mockApi.getNewsBySlug, (slug) => request(`/news/${slug}`)),
 
-  createNews: call(mockApi.createNews, (body) => request('/news', { method: 'POST', body })),
+  createNews: call(mockApi.createNews, (body) => {
+    if (body instanceof FormData) return requestMultipart('/news', body)
+    return request('/news', { method: 'POST', body })
+  }),
 
-  updateNews: call(mockApi.updateNews, (id, body) => request(`/news/${id}`, { method: 'PUT', body })),
+  updateNews: call(mockApi.updateNews, (id, body) => {
+    if (body instanceof FormData) return requestMultipart(`/news/${id}`, body, 'PUT')
+    return request(`/news/${id}`, { method: 'PUT', body })
+  }),
 
   deleteNews: call(mockApi.deleteNews, (id) => request(`/news/${id}`, { method: 'DELETE' })),
 
@@ -88,9 +115,15 @@ export const api = {
     return request(`/programs${qs ? `?${qs}` : ''}`)
   }),
 
-  createProgram: call(mockApi.createProgram, (body) => request('/programs', { method: 'POST', body })),
+  createProgram: call(mockApi.createProgram, (body) => {
+    if (body instanceof FormData) return requestMultipart('/programs', body)
+    return request('/programs', { method: 'POST', body })
+  }),
 
-  updateProgram: call(mockApi.updateProgram, (id, body) => request(`/programs/${id}`, { method: 'PUT', body })),
+  updateProgram: call(mockApi.updateProgram, (id, body) => {
+    if (body instanceof FormData) return requestMultipart(`/programs/${id}`, body, 'PUT')
+    return request(`/programs/${id}`, { method: 'PUT', body })
+  }),
 
   deleteProgram: call(mockApi.deleteProgram, (id) => request(`/programs/${id}`, { method: 'DELETE' })),
 
@@ -99,9 +132,23 @@ export const api = {
     return request(`/gallery${qs ? `?${qs}` : ''}`)
   }),
 
-  createGalleryItem: call(mockApi.createGalleryItem, (body) => request('/gallery', { method: 'POST', body })),
+  createGalleryItem: call(mockApi.createGalleryItem, (body) => {
+    if (body instanceof FormData) {
+      return requestMultipart('/gallery', body)
+    }
+    return request('/gallery', { method: 'POST', body })
+  }),
 
-  updateGalleryItem: call(mockApi.updateGalleryItem, (id, body) => request(`/gallery/${id}`, { method: 'PUT', body })),
+  updateGalleryItem: call(mockApi.updateGalleryItem, (id, body) => {
+    if (body instanceof FormData) {
+      return requestMultipart(`/gallery/${id}`, body, 'PUT')
+    }
+    return request(`/gallery/${id}`, { method: 'PUT', body })
+  }),
+
+  uploadImage: call(mockApi.uploadImage, (folder, formData) =>
+    requestMultipart(`/uploads/${folder}`, formData),
+  ),
 
   deleteGalleryItem: call(mockApi.deleteGalleryItem, (id) => request(`/gallery/${id}`, { method: 'DELETE' })),
 

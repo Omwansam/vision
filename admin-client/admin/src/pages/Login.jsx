@@ -95,7 +95,7 @@ export default function Login() {
         </div>
 
         <p className="relative text-xs text-primary-foreground/60">
-          &copy; {new Date().getFullYear()} Vision Mentors Group. All rights reserved.
+          &copy; {new Date().getFullYear()} Vision Mentors Group. All rights reserved. Developed by Draftbit Studios.
         </p>
       </div>
 
