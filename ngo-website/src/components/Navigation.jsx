@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { Menu, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { mediaUrl } from '@/lib/mediaUrl'
+import { displayImage } from '@/lib/mediaUrl'
 import { useApiData } from '@/hooks/useApiData'
 import { api } from '@/lib/api'
 import { mapSiteSettings } from '@/lib/mappers'
@@ -21,7 +21,7 @@ export function Navigation() {
     }
   }, [])
 
-  const logoSrc = mediaUrl(siteSettings?.logoImageUrl || '/uploads/general/vmg-logo.jpg')
+  const logoSrc = displayImage(siteSettings?.logoImageUrl, '/uploads/general/vmg-logo.jpg')
 
   const navLinks = [
     { href: '/about', label: 'About' },
@@ -49,7 +49,7 @@ export function Navigation() {
               src={logoSrc}
               alt="Vision Mentors Group Logo"
               className="h-10 w-auto object-contain"
-              onError={(e) => { e.currentTarget.src = '/placeholder-logo.svg' }}
+              onError={(e) => { e.currentTarget.src = '/branding/vmg-logo.jpg' }}
             />
           </Link>
 

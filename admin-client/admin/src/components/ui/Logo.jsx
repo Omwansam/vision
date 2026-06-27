@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils'
 import { mediaUrl } from '@/lib/mediaUrl'
 
 const LOGO_SRC = '/uploads/general/vmg-logo.jpg'
-const LOGO_FALLBACK = '/placeholder-logo.svg'
+const LOGO_FALLBACK = '/uploads/general/vmg-logo.jpg'
 
 const imgSizes = {
   sm: 'h-8',

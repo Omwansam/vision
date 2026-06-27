@@ -1,5 +1,5 @@
 import { BookOpen, Heart, Users } from 'lucide-react'
-import { mediaUrl } from '@/lib/mediaUrl'
+import { displayImage, mediaUrl } from '@/lib/mediaUrl'
 
 const ICON_MAP = {
   BookOpen,
@@ -41,8 +41,8 @@ export function tenderReferenceFromParam(param) {
 }
 
 export function mapProgram(program) {
-  const images = program.images?.map((img) => mediaUrl(img.url)) || []
-  const imageUrl = mediaUrl(program.imageUrl) || images[0] || '/placeholder.svg'
+  const images = program.images?.map((img) => displayImage(img.url)) || []
+  const imageUrl = displayImage(program.imageUrl) || images[0] || '/placeholder.svg'
 
   return {
     id: program.slug,
@@ -59,8 +59,8 @@ export function mapProgram(program) {
 }
 
 export function mapFallbackProgram(program) {
-  const images = (program.images || []).map((url) => mediaUrl(url))
-  const image = mediaUrl(program.image)
+  const images = (program.images || []).map((url) => displayImage(url))
+  const image = displayImage(program.image)
 
   return {
     ...program,
@@ -77,7 +77,7 @@ export function mapNewsArticle(article) {
     excerpt: article.excerpt,
     date: article.publishedAt || article.createdAt,
     category: article.category,
-    image: mediaUrl(article.imageUrl) || '/placeholder.svg',
+    image: displayImage(article.imageUrl) || '/placeholder.svg',
     author: article.author?.name || 'Vision Mentors Group',
     isFeatured: article.isFeatured,
     body: parseArticleBody(article.body, article.excerpt),
@@ -87,7 +87,7 @@ export function mapNewsArticle(article) {
 export function mapFallbackNewsArticle(article) {
   return {
     ...article,
-    image: mediaUrl(article.image) || '/placeholder.svg',
+    image: displayImage(article.image) || '/placeholder.svg',
   }
 }
 
@@ -117,7 +117,7 @@ export function parseArticleBody(body, excerpt) {
 
 export function mapGalleryImage(image) {
   return {
-    secure_url: mediaUrl(image.url),
+    secure_url: displayImage(image.url),
     public_id: image.publicId || image.id,
     title: image.title,
     category: image.category,

@@ -7,6 +7,7 @@ import { usePageMeta } from '@/hooks/usePageMeta'
 import { useApiData } from '@/hooks/useApiData'
 import { api } from '@/lib/api'
 import { mapGalleryImage } from '@/lib/mappers'
+import { handleUploadImageError } from '@/lib/mediaUrl'
 import { galleryImages as fallbackGallery } from '@/data/galleryImages'
 
 function mapFallbackGalleryImage(image) {
@@ -67,9 +68,7 @@ export default function Gallery() {
                       src={image.secure_url}
                       alt={image.title}
                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                      onError={(e) => {
-                        e.currentTarget.src = '/placeholder.svg'
-                      }}
+                      onError={handleUploadImageError}
                     />
                     <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors duration-300" />
                   </button>
@@ -163,9 +162,7 @@ export default function Gallery() {
               src={galleryImages[selectedIndex].secure_url}
               alt={galleryImages[selectedIndex].title}
               className="max-w-full max-h-[90vh] object-contain"
-              onError={(e) => {
-                e.currentTarget.src = '/placeholder.svg'
-              }}
+              onError={handleUploadImageError}
             />
           </div>
 

@@ -9,7 +9,7 @@ import { useApiData } from '@/hooks/useApiData'
 import { api } from '@/lib/api'
 import { mapMissionVision, mapSiteSettings } from '@/lib/mappers'
 import { missionVision as fallbackMissionVision } from '@/data/site'
-import { mediaUrl } from '@/lib/mediaUrl'
+import { displayImage, handleUploadImageError } from '@/lib/mediaUrl'
 
 export default function About() {
   const { data: pageData } = useApiData(async () => {
@@ -33,8 +33,9 @@ export default function About() {
   }, [])
 
   const missionVision = pageData?.missionVision ?? fallbackMissionVision
-  const aboutImage = mediaUrl(
-    pageData?.siteSettings?.aboutImageUrl || '/uploads/general/gallery-1.jpg',
+  const aboutImage = displayImage(
+    pageData?.siteSettings?.aboutImageUrl,
+    '/uploads/general/gallery-1.jpg',
   )
 
   usePageMeta('About Us - Vision Mentors Group')
@@ -83,9 +84,7 @@ export default function About() {
                   src={aboutImage}
                   alt="Vision Mentors Group team working together"
                   className="w-full h-full object-cover"
-                  onError={(e) => {
-                    e.currentTarget.src = '/placeholder.svg'
-                  }}
+                  onError={handleUploadImageError}
                 />
               </div>
             </div>

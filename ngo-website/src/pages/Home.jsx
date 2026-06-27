@@ -28,7 +28,7 @@ import { testimonials as fallbackTestimonials } from '@/data/testimonials'
 import { partners as fallbackPartners } from '@/data/partners'
 import { tenders as fallbackTenders } from '@/data/tenders'
 import { NewsCard } from '@/components/NewsCard'
-import { mediaUrl } from '@/lib/mediaUrl'
+import { displayImage, handleUploadImageError } from '@/lib/mediaUrl'
 import {
   Heart,
   Users,
@@ -70,11 +70,13 @@ export default function Home() {
   }, [])
 
   const missionVision = homeData?.missionVision ?? fallbackMissionVision
-  const heroImage = mediaUrl(
-    homeData?.siteSettings?.heroImageUrl || '/uploads/general/hero-team.jpg',
+  const heroImage = displayImage(
+    homeData?.siteSettings?.heroImageUrl,
+    '/uploads/general/hero-team.jpg',
   )
-  const aboutImage = mediaUrl(
-    homeData?.siteSettings?.aboutImageUrl || '/uploads/general/gallery-1.jpg',
+  const aboutImage = displayImage(
+    homeData?.siteSettings?.aboutImageUrl,
+    '/uploads/general/gallery-1.jpg',
   )
   const programs = homeData?.programs ?? fallbackPrograms.map(mapFallbackProgram)
   const newsArticles = homeData?.newsArticles ?? fallbackNews.slice(0, 3).map(mapFallbackNewsArticle)
@@ -100,7 +102,7 @@ export default function Home() {
             src={heroImage}
             alt="Vision Mentors Group team in Kenya"
             className="w-full h-full object-cover object-center"
-            onError={(e) => { e.currentTarget.src = '/placeholder.svg' }}
+            onError={handleUploadImageError}
           />
         </div>
         <div className="absolute inset-0 bg-gradient-to-b from-[#0B1C3D]/75 via-[#0A4EDB]/55 to-[#0B1C3D]/80" />
@@ -193,7 +195,7 @@ export default function Home() {
                       src={program.image}
                       alt={program.title}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      onError={(e) => { e.currentTarget.src = '/placeholder.svg' }}
+                      onError={handleUploadImageError}
                     />
                   </div>
                   <div className="p-6">
@@ -223,7 +225,7 @@ export default function Home() {
                     src={aboutImage}
                     alt="Early Childhood Development"
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                    onError={(e) => { e.currentTarget.src = '/placeholder.svg' }}
+                    onError={handleUploadImageError}
                   />
                 </div>
                 <div className="p-8">

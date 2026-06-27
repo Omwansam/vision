@@ -9,7 +9,7 @@ import { usePageMeta } from '@/hooks/usePageMeta'
 import { useApiData } from '@/hooks/useApiData'
 import { api } from '@/lib/api'
 import { mapSiteSettings, volunteerRoleValue, partnershipTypeValue } from '@/lib/mappers'
-import { mediaUrl } from '@/lib/mediaUrl'
+import { displayImage, handleUploadImageError } from '@/lib/mediaUrl'
 
 export default function GetInvolved() {
   const [volunteerForm, setVolunteerForm] = useState({
@@ -32,11 +32,13 @@ export default function GetInvolved() {
     }
   }, [])
 
-  const volunteerImage = mediaUrl(
-    siteSettings?.getInvolvedImage1Url || '/uploads/general/gallery-1.jpg',
+  const volunteerImage = displayImage(
+    siteSettings?.getInvolvedImage1Url,
+    '/uploads/general/gallery-1.jpg',
   )
-  const partnershipImage = mediaUrl(
-    siteSettings?.getInvolvedImage2Url || '/uploads/general/gallery-2.jpg',
+  const partnershipImage = displayImage(
+    siteSettings?.getInvolvedImage2Url,
+    '/uploads/general/gallery-2.jpg',
   )
 
   usePageMeta('Get Involved - Vision Mentors Group')
@@ -142,9 +144,7 @@ export default function GetInvolved() {
                   src={volunteerImage}
                   alt="Volunteers working together"
                   className="w-full h-full object-cover"
-                  onError={(e) => {
-                    e.currentTarget.src = '/placeholder.svg'
-                  }}
+                  onError={handleUploadImageError}
                 />
               </div>
             </div>
@@ -159,9 +159,7 @@ export default function GetInvolved() {
                   src={partnershipImage}
                   alt="Community partnership"
                   className="w-full h-full object-cover"
-                  onError={(e) => {
-                    e.currentTarget.src = '/placeholder.svg'
-                  }}
+                  onError={handleUploadImageError}
                 />
               </div>
 
