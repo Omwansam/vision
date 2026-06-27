@@ -21,7 +21,7 @@ export function Navigation() {
     }
   }, [])
 
-  const logoSrc = displayImage(siteSettings?.logoImageUrl, '/uploads/general/vmg-logo.jpg')
+  const logoSrc = displayImage(siteSettings?.logoImageUrl, '/uploads/general/vision-logo.png')
 
   const navLinks = [
     { href: '/about', label: 'About' },
@@ -43,13 +43,13 @@ export function Navigation() {
   return (
     <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-border shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          <Link to="/" className="flex items-center hover:opacity-80 transition-opacity duration-300">
+        <div className="flex justify-between items-center min-h-[4.75rem] py-2">
+          <Link to="/" className="flex items-center shrink-0 hover:opacity-80 transition-opacity duration-300">
             <img
               src={logoSrc}
-              alt="Vision Mentors Group Logo"
-              className="h-10 w-auto object-contain"
-              onError={(e) => { e.currentTarget.src = '/branding/vmg-logo.jpg' }}
+              alt="Vision Mentors Program"
+              className="h-11 sm:h-12 w-auto max-w-[min(240px,58vw)] object-contain object-left"
+              onError={(e) => { e.currentTarget.src = '/branding/vision-logo.png' }}
             />
           </Link>
 

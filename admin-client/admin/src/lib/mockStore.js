@@ -385,7 +385,7 @@ function buildSeedStore() {
       aboutImageUrl: '/uploads/general/gallery-1.jpg',
       getInvolvedImage1Url: '/uploads/general/gallery-1.jpg',
       getInvolvedImage2Url: '/uploads/general/gallery-2.jpg',
-      logoImageUrl: '/uploads/general/vmg-logo.jpg',
+      logoImageUrl: '/uploads/general/vision-logo.png',
       socialLinks: [
         { id: 'soc1', label: 'Facebook', href: 'https://facebook.com', isActive: true, sortOrder: 0 },
         { id: 'soc2', label: 'LinkedIn', href: 'https://linkedin.com', isActive: true, sortOrder: 1 },

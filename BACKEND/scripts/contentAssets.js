@@ -29,7 +29,7 @@ const GENERAL_ASSETS = [
   { source: 'gallery-1.jpg', file: 'gallery-1.jpg' },
   { source: 'gallery-2.jpg', file: 'gallery-2.jpg' },
   { source: 'gallery-3.jpg', file: 'gallery-3.jpg' },
-  { source: 'branding/vmg-logo.jpg', file: 'vmg-logo.jpg' },
+  { source: 'branding/vision-logo.png', file: 'vision-logo.png' },
 ];
 
 const PROGRAMS = [

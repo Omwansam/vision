@@ -96,7 +96,7 @@ async function importSiteImages() {
       aboutImageUrl: '/uploads/general/gallery-1.jpg',
       getInvolvedImage1Url: '/uploads/general/gallery-1.jpg',
       getInvolvedImage2Url: '/uploads/general/gallery-2.jpg',
-      logoImageUrl: '/uploads/general/vmg-logo.jpg',
+      logoImageUrl: '/uploads/general/vision-logo.png',
     },
     create: {
       id: 'site',
@@ -106,7 +106,7 @@ async function importSiteImages() {
       aboutImageUrl: '/uploads/general/gallery-1.jpg',
       getInvolvedImage1Url: '/uploads/general/gallery-1.jpg',
       getInvolvedImage2Url: '/uploads/general/gallery-2.jpg',
-      logoImageUrl: '/uploads/general/vmg-logo.jpg',
+      logoImageUrl: '/uploads/general/vision-logo.png',
     },
   });
 }

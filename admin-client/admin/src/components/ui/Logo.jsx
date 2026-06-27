@@ -2,13 +2,26 @@ import { PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { mediaUrl } from '@/lib/mediaUrl'
 
-const LOGO_SRC = '/uploads/general/vmg-logo.jpg'
-const LOGO_FALLBACK = '/uploads/general/vmg-logo.jpg'
+const LOGO_SRC = '/uploads/general/vision-logo.png'
+const LOGO_FALLBACK = '/branding/vision-logo.png'
 
 const imgSizes = {
-  sm: 'h-8',
-  default: 'h-10',
-  lg: 'h-12',
+  sm: 'max-h-9',
+  default: 'max-h-11',
+  lg: 'max-h-12',
+}
+
+function LogoImage({ className, imgClass }) {
+  return (
+    <img
+      src={mediaUrl(LOGO_SRC)}
+      alt="Vision Mentors Program"
+      className={cn('w-auto max-w-full object-contain', imgClass, className)}
+      onError={(e) => {
+        e.currentTarget.src = LOGO_FALLBACK
+      }}
+    />
+  )
 }
 
 export function Logo({
@@ -23,14 +36,7 @@ export function Logo({
   if (!showText || layout === 'icon') {
     return (
       <div className={cn('flex items-center justify-center', className)}>
-        <img
-          src={mediaUrl(LOGO_SRC)}
-          alt="Vision Mentors Group"
-          className={cn('w-auto object-contain', imgClass)}
-          onError={(e) => {
-            e.currentTarget.src = LOGO_FALLBACK
-          }}
-        />
+        <LogoImage imgClass={imgClass} />
       </div>
     )
   }
@@ -38,19 +44,11 @@ export function Logo({
   if (layout === 'stacked') {
     return (
       <div className={cn('flex flex-col items-center text-center', className)}>
-        <div className="mb-3 flex h-14 w-full items-center justify-center rounded-xl border border-border/60 bg-white px-3 py-2 shadow-sm">
-          <img
-            src={mediaUrl(LOGO_SRC)}
-            alt="Vision Mentors Group"
-            className="max-h-10 w-auto max-w-full object-contain"
-            onError={(e) => {
-              e.currentTarget.src = LOGO_FALLBACK
-            }}
-          />
+        <div className="mb-2 flex w-full items-center justify-center rounded-xl border border-border/60 bg-white px-3 py-2.5 shadow-sm">
+          <LogoImage imgClass="max-h-14" />
         </div>
-        <p className="font-serif text-sm font-semibold leading-snug text-foreground">Vision Mentors Group</p>
         {subtitle && (
-          <span className="mt-1.5 inline-flex rounded-full bg-primary/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
+          <span className="inline-flex rounded-full bg-primary/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
             {subtitle}
           </span>
         )}
@@ -61,23 +59,13 @@ export function Logo({
   return (
     <div className={cn('flex min-w-0 items-center gap-3', className)}>
       <div className="flex shrink-0 items-center justify-center rounded-lg border border-border/60 bg-white px-2 py-1.5 shadow-sm">
-        <img
-          src={mediaUrl(LOGO_SRC)}
-          alt="Vision Mentors Group"
-          className={cn('w-auto object-contain', imgClass)}
-          onError={(e) => {
-            e.currentTarget.src = LOGO_FALLBACK
-          }}
-        />
+        <LogoImage imgClass={imgClass} />
       </div>
-      {showText && (
+      {showText && subtitle && (
         <div className="min-w-0">
-          <p className="truncate font-serif text-sm font-semibold leading-tight text-foreground">Vision Mentors Group</p>
-          {subtitle && (
-            <p className="mt-0.5 truncate text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-              {subtitle}
-            </p>
-          )}
+          <p className="truncate text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+            {subtitle}
+          </p>
         </div>
       )}
     </div>

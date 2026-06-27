@@ -42,7 +42,7 @@ export function staticImageFallback(path) {
 
   if (normalized.startsWith('/uploads/general/')) {
     const file = normalized.slice('/uploads/general/'.length)
-    if (file === 'vmg-logo.jpg') return '/branding/vmg-logo.jpg'
+    if (file === 'vision-logo.png' || file === 'vmg-logo.jpg') return '/branding/vision-logo.png'
     return `/${file}`
   }
 
