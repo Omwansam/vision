@@ -1,7 +1,11 @@
 const fs = require('fs');
 const path = require('path');
 
-const NGO_PUBLIC_DIR = path.join(__dirname, '../../ngo-website/public');
+const NGO_PUBLIC_DIR =
+  process.env.NGO_PUBLIC_DIR ||
+  (fs.existsSync('/app/ngo-public')
+    ? '/app/ngo-public'
+    : path.join(__dirname, '../../ngo-website/public'));
 const NGO_IMAGES_DIR = path.join(NGO_PUBLIC_DIR, 'images');
 const UPLOADS_DIR = path.join(__dirname, '../uploads');
 

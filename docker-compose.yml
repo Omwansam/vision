@@ -49,6 +49,7 @@ services:
       INIT_CONTENT: ${INIT_CONTENT:-false}
     volumes:
       - uploads_data:/app/uploads
+      - ./ngo-website/public:/app/ngo-public:ro
     healthcheck:
       test:
         [
