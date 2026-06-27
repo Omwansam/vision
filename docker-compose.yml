@@ -10,14 +10,14 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
       interval: 5s
       timeout: 5s
       retries: 10
       start_period: 10s
+    networks:
+      - dan
 
   backend:
     build:
@@ -35,9 +35,9 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
-      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173,http://localhost:5174}
-      WEBSITE_URL: ${WEBSITE_URL:-http://localhost:5173}
-      BACKEND_URL: ${BACKEND_URL:-http://localhost:5000}
+      FRONTEND_URL: ${FRONTEND_URL}
+      WEBSITE_URL: ${WEBSITE_URL}
+      BACKEND_URL: ${BACKEND_URL}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_SECURE: ${SMTP_SECURE:-false}
@@ -46,34 +46,69 @@ services:
       SMTP_FROM: ${SMTP_FROM:-}
       SMTP_FROM_NAME: ${SMTP_FROM_NAME:-Vision Mentors Group}
       ADMIN_NOTIFICATION_EMAIL: ${ADMIN_NOTIFICATION_EMAIL:-}
-    ports:
-      - "${BACKEND_PORT:-5000}:5000"
+      INIT_CONTENT: ${INIT_CONTENT:-false}
     volumes:
       - uploads_data:/app/uploads
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"fetch('http://127.0.0.1:5000/api/v1/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\"",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - dan
 
   ngo-website:
     build:
       context: ./ngo-website
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: ${VITE_API_URL}
+        VITE_API_URL: ${VITE_API_URL:-/api/v1}
     restart: unless-stopped
     depends_on:
-      - backend
-    ports:
-      - "${NGO_WEBSITE_PORT:-5173}:80"
+      backend:
+        condition: service_healthy
+    networks:
+      - dan
 
   admin:
     build:
       context: ./admin-client/admin
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: ${VITE_API_URL}
+        VITE_API_URL: ${VITE_API_URL:-/api/v1}
     restart: unless-stopped
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+    networks:
+      - dan
+
+  proxy:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+      ngo-website:
+        condition: service_started
+      admin:
+        condition: service_started
     ports:
-      - "${ADMIN_PORT:-5174}:80"
+      - "${HTTP_PORT:-80}:80"
+    volumes:
+      - ./deploy/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./deploy/nginx/conf.d:/etc/nginx/conf.d:ro
+    networks:
+      - dan
+
+networks:
+  dan:
+    driver: bridge
 
 volumes:
   postgres_data:

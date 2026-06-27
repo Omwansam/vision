@@ -1,419 +1,398 @@
-# Deploying Vision Mentors Group on a VPS (e.g. Hostinger)
+# Deploying Vision Mentors Group — visionmentors.org
 
-This guide covers deploying the full stack on a Linux VPS with Docker:
-
-| Service | Description | Default container port |
-|---------|-------------|------------------------|
-| **postgres** | PostgreSQL database | 5432 (internal) |
-| **backend** | Express API + Prisma | 5000 |
-| **ngo-website** | Public React site (nginx) | 80 |
-| **admin** | Admin dashboard (nginx) | 80 |
-
-Recommended production layout:
+Production stack: **Docker Compose** + **nginx edge proxy** + **Cloudflare** DNS/SSL.
 
 | URL | Service |
 |-----|---------|
-| `https://yourdomain.com` | Public website |
-| `https://admin.yourdomain.com` | Admin panel |
-| `https://api.yourdomain.com` | Backend API |
+| https://visionmentors.org | Public website |
+| https://admin.visionmentors.org | Admin dashboard |
+| https://visionmentors.org/api/v1/… | API (proxied through the website nginx) |
+
+The API is **not** on a separate subdomain. Both frontends use `VITE_API_URL=/api/v1`, and nginx proxies `/api/` and `/uploads/` to the backend container.
+
+---
+
+## Architecture
+
+```
+Internet → Cloudflare (HTTPS) → VPS :80 → proxy (nginx)
+                                              ├─ visionmentors.org      → ngo-website → backend (/api, /uploads)
+                                              └─ admin.visionmentors.org → admin       → backend (/api, /uploads)
+postgres (internal) ← backend
+uploads_data volume ← backend
+```
 
 ---
 
 ## 1. VPS requirements
 
-Use a **Linux VPS** (Ubuntu 22.04 or 24.04 works well). On Hostinger:
+- **Ubuntu 22.04 or 24.04**
+- **2 vCPU, 4 GB RAM** minimum
+- Ports **22**, **80** open (443 optional on origin — Cloudflare terminates HTTPS)
 
-1. Order a **VPS** plan (not shared hosting — this project needs Docker and a long-running Node process).
-2. Choose **Ubuntu** as the OS.
-3. Note the server **IP address** and **root** (or sudo) SSH credentials from the Hostinger panel.
-
-Minimum suggested specs:
-
-- 2 vCPU
-- 4 GB RAM
-- 40 GB SSD
-
----
-
-## 2. Initial server setup
-
-SSH into the server:
-
-```bash
-ssh root@YOUR_SERVER_IP
-```
-
-Update packages and install basics:
+SSH into the server, then run:
 
 ```bash
 apt update && apt upgrade -y
 apt install -y git curl ufw
-```
-
-### Install Docker
-
-```bash
 curl -fsSL https://get.docker.com | sh
 systemctl enable docker
 systemctl start docker
-```
-
-Install the Docker Compose plugin:
-
-```bash
 apt install -y docker-compose-plugin
 docker compose version
-```
-
-### Firewall
-
-Allow SSH, HTTP, and HTTPS. Do **not** expose PostgreSQL publicly.
-
-```bash
 ufw allow OpenSSH
 ufw allow 80/tcp
-ufw allow 443/tcp
 ufw enable
 ```
 
 ---
 
-## 3. Clone the project
+## 2. Clone the project
 
 ```bash
 cd /opt
-git clone https://github.com/YOUR_ORG/YOUR_REPO.git dan
+git clone https://github.com/Omwansam/vision.git dan
 cd dan
 ```
 
-Replace the Git URL with your actual repository.
-
 ---
 
-## 4. Configure environment variables
-
-Secrets live only in `.env` on the server. That file is **never** committed to Git.
+## 3. Create `.env`
 
 ```bash
 cp .env.example .env
 nano .env
 ```
 
-### Production example
-
-Replace placeholders with your real domain and strong secrets:
-
-```env
-# PostgreSQL
-POSTGRES_USER=dan
-POSTGRES_PASSWORD=GENERATE_A_LONG_RANDOM_PASSWORD
-POSTGRES_DB=vision
-POSTGRES_PORT=5432
-
-# Backend
-JWT_SECRET=GENERATE_A_LONG_RANDOM_JWT_SECRET
-JWT_EXPIRES_IN=7d
-FRONTEND_URL=https://yourdomain.com,https://admin.yourdomain.com
-
-# Internal Docker ports (host mapping)
-BACKEND_PORT=5000
-NGO_WEBSITE_PORT=5173
-ADMIN_PORT=5174
-
-# Public API URL — must match how browsers reach the API (HTTPS in production)
-VITE_API_URL=https://api.yourdomain.com/api/v1
-```
-
-Generate strong secrets on the server:
+Generate two strong secrets (run twice, use one for each variable):
 
 ```bash
 openssl rand -base64 48
 ```
 
-Run that twice — once for `POSTGRES_PASSWORD`, once for `JWT_SECRET`.
+### Required `.env` values
 
-### Important notes
+```env
+POSTGRES_USER=dan
+POSTGRES_PASSWORD=PASTE_FIRST_SECRET_HERE
+POSTGRES_DB=vision
 
-- `VITE_API_URL` is baked into the frontend images **at build time**. If you change the API domain, rebuild the frontend containers.
-- `FRONTEND_URL` must list every origin that calls the API (CORS).
-- `DATABASE_URL` is built automatically by `docker-compose.yml` — you do not need to set it in `.env`.
+JWT_SECRET=PASTE_SECOND_SECRET_HERE
+JWT_EXPIRES_IN=7d
 
-### Database seed (first deploy only)
+FRONTEND_URL=https://visionmentors.org,https://admin.visionmentors.org
+VITE_API_URL=/api/v1
+WEBSITE_URL=https://visionmentors.org
+BACKEND_URL=https://visionmentors.org
 
-The seed file (`BACKEND/prisma/seed.js`) is gitignored because it may contain sensitive defaults. Copy it to the server manually or create it from your local copy, then run:
+HTTP_PORT=80
 
-```bash
-docker compose exec backend npx prisma db seed
+# SMTP — fill in for live email notifications
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=465
+SMTP_SECURE=true
+SMTP_USER=your@gmail.com
+SMTP_PASS=your-app-password
+SMTP_FROM=your@gmail.com
+SMTP_FROM_NAME=Vision Mentors Group
+ADMIN_NOTIFICATION_EMAIL=info@visionmentors.org
 ```
 
-Set `SEED_ADMIN_EMAIL` and `SEED_ADMIN_PASSWORD` in `.env` before seeding if your seed script reads them.
+Save and exit (`Ctrl+O`, `Enter`, `Ctrl+X` in nano).
 
 ---
 
-## 5. Build and start with Docker Compose
+## 4. Cloudflare DNS
 
-From the project root (`/opt/dan`):
+In the Cloudflare dashboard for **visionmentors.org**:
 
-```bash
-docker compose up -d --build
-```
+### DNS records (proxied — orange cloud ON)
 
-Check status:
+| Type | Name | Content | Proxy |
+|------|------|---------|-------|
+| A | `@` | `5.189.178.15` | Proxied |
+| A | `www` | `5.189.178.15` | Proxied |
+| A | `admin` | `5.189.178.15` | Proxied |
 
-```bash
-docker compose ps
-docker compose logs -f backend
-```
+`www` redirects to `visionmentors.org` at the nginx edge.
 
-The backend entrypoint runs `prisma migrate deploy` automatically on startup.
+### SSL/TLS settings
 
-Verify locally on the server:
-
-```bash
-curl http://localhost:5000/api/v1/health
-curl -I http://localhost:5173
-curl -I http://localhost:5174
-```
+1. **SSL/TLS → Overview**: set encryption mode to **Full**
+2. **SSL/TLS → Edge Certificates**: enable **Always Use HTTPS**
+3. **Rules → Cache Rules** (recommended):
+   - URI Path starts with `/api/` → **Bypass cache**
+   - URI Path starts with `/uploads/` → **Bypass cache**
 
 ---
 
-## 6. Point DNS to the VPS
+## 5. Deploy manually with Docker
 
-In Hostinger (or your domain registrar), create **A records**:
-
-| Host | Type | Value |
-|------|------|-------|
-| `@` | A | `YOUR_SERVER_IP` |
-| `www` | A | `YOUR_SERVER_IP` |
-| `api` | A | `YOUR_SERVER_IP` |
-| `admin` | A | `YOUR_SERVER_IP` |
-
-DNS can take up to 24 hours to propagate (often much faster).
-
----
-
-## 7. Reverse proxy and HTTPS (nginx on the host)
-
-The Docker containers listen on localhost ports. Put **nginx on the host** in front of them for HTTPS.
-
-Install nginx and Certbot:
-
-```bash
-apt install -y nginx certbot python3-certbot-nginx
-```
-
-Create `/etc/nginx/sites-available/dan`:
-
-```nginx
-# Public website
-server {
-    listen 80;
-    server_name yourdomain.com www.yourdomain.com;
-
-    location / {
-        proxy_pass http://127.0.0.1:5173;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-
-# Admin dashboard
-server {
-    listen 80;
-    server_name admin.yourdomain.com;
-
-    location / {
-        proxy_pass http://127.0.0.1:5174;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-
-# API
-server {
-    listen 80;
-    server_name api.yourdomain.com;
-
-    location / {
-        proxy_pass http://127.0.0.1:5000;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-```
-
-Enable the site:
-
-```bash
-ln -s /etc/nginx/sites-available/dan /etc/nginx/sites-enabled/
-nginx -t
-systemctl reload nginx
-```
-
-Issue SSL certificates:
-
-```bash
-certbot --nginx -d yourdomain.com -d www.yourdomain.com -d admin.yourdomain.com -d api.yourdomain.com
-```
-
-Certbot will redirect HTTP to HTTPS and renew certificates automatically.
-
----
-
-## 8. Hardening for production
-
-### Do not expose PostgreSQL
-
-In `docker-compose.yml`, remove or comment out the Postgres `ports` mapping so the database is only reachable inside the Docker network:
-
-```yaml
-# ports:
-#   - "${POSTGRES_PORT:-5432}:5432"
-```
-
-Then restart:
-
-```bash
-docker compose up -d
-```
-
-### Keep secrets out of Git
-
-- Commit only `.env.example` (placeholders).
-- Never commit `.env`, `BACKEND/.env`, or `BACKEND/prisma/seed.js`.
-
-### Restart policy
-
-All services use `restart: unless-stopped`, so they come back after a server reboot.
-
-### Optional: auto-start on boot
-
-Docker is enabled via `systemctl enable docker`. Compose stacks with `restart: unless-stopped` will start when Docker starts.
-
----
-
-## 9. Deploying updates
-
-On the server:
+All commands below are run from the project root on the VPS:
 
 ```bash
 cd /opt/dan
-git pull
-docker compose up -d --build
 ```
 
-If you changed `VITE_API_URL` or `FRONTEND_URL`, rebuild is required:
+### Step 1 — Build all images
 
 ```bash
-docker compose up -d --build ngo-website admin backend
+docker compose build
 ```
 
-View logs after deploy:
+This builds `backend`, `ngo-website`, and `admin`. The `proxy` service uses the official `nginx:1.27-alpine` image (no build).
 
-```bash
-docker compose logs -f --tail=100
-```
-
----
-
-## 10. Useful commands
-
-| Task | Command |
-|------|---------|
-| Start all services | `docker compose up -d` |
-| Stop all services | `docker compose down` |
-| Rebuild after code changes | `docker compose up -d --build` |
-| Backend logs | `docker compose logs -f backend` |
-| Run migrations manually | `docker compose exec backend npx prisma migrate deploy` |
-| Open DB shell | `docker compose exec postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"` |
-| Check disk usage | `docker system df` |
-
----
-
-## 11. Troubleshooting
-
-### Frontend loads but API calls fail
-
-- Confirm `VITE_API_URL` in `.env` matches the public API URL (`https://api.yourdomain.com/api/v1`).
-- Rebuild frontends after changing it: `docker compose up -d --build ngo-website admin`.
-- Check `FRONTEND_URL` includes both site origins for CORS.
-
-### CORS errors in the browser
-
-Ensure `FRONTEND_URL` lists the exact origins (scheme + domain, no trailing slash):
-
-```env
-FRONTEND_URL=https://yourdomain.com,https://admin.yourdomain.com
-```
-
-### Backend cannot connect to database
-
-```bash
-docker compose logs postgres
-docker compose logs backend
-```
-
-Confirm `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `POSTGRES_DB` in `.env` are set and that the postgres container is healthy.
-
-### 502 Bad Gateway from nginx
-
-The upstream container may be down:
-
-```bash
-docker compose ps
-curl http://127.0.0.1:5000/api/v1/health
-```
-
-Restart if needed:
-
-```bash
-docker compose restart backend ngo-website admin
-```
-
-### Out of memory during build
-
-Hostinger smaller VPS plans may struggle with parallel builds:
+To build one service at a time (if the VPS runs low on memory):
 
 ```bash
 docker compose build backend
 docker compose build ngo-website
 docker compose build admin
+```
+
+### Step 2 — Start all containers
+
+```bash
+docker compose up -d
+```
+
+This starts:
+
+| Container | Role |
+|-----------|------|
+| `postgres` | Database |
+| `backend` | API (runs `prisma migrate deploy` on startup) |
+| `ngo-website` | Public React site + nginx |
+| `admin` | Admin dashboard + nginx |
+| `proxy` | Edge nginx on port 80 |
+
+### Step 3 — Check containers are running
+
+```bash
+docker compose ps
+```
+
+All services should show `running`. Wait until `backend` is `healthy` (may take 30–60 seconds on first start).
+
+### Step 4 — Follow backend logs (first deploy)
+
+Migrations run automatically when the backend starts. Watch for errors:
+
+```bash
+docker compose logs -f backend
+```
+
+Press `Ctrl+C` to stop following logs. You should see:
+
+- `Running database migrations...`
+- `Starting API server...`
+
+### Step 5 — Confirm API health
+
+```bash
+docker compose exec backend node -e "fetch('http://127.0.0.1:5000/api/v1/health').then(r=>r.json()).then(console.log)"
+```
+
+Or through the edge proxy:
+
+```bash
+curl -s -H "Host: visionmentors.org" http://127.0.0.1/api/v1/health
+```
+
+Expected: JSON with `"message": "VMG API is running"`.
+
+### Step 6 — Import gallery and page images (first deploy)
+
+Copies images into `uploads/` and updates the database. Safe to re-run:
+
+```bash
+docker compose exec backend node scripts/import-content.js
+```
+
+### Step 7 — Seed the database (first deploy)
+
+`BACKEND/prisma/seed.js` may be gitignored. If you have it on the server (copy from your dev machine if needed):
+
+```bash
+docker compose exec backend npx prisma db seed
+```
+
+This creates the admin user, programs, news, site settings, etc. Set `SEED_ADMIN_EMAIL` and `SEED_ADMIN_PASSWORD` in `.env` before seeding if your seed script uses them.
+
+### Step 8 — Verify each layer
+
+```bash
+# All containers
+docker compose ps
+
+# Edge proxy → website
+curl -I -H "Host: visionmentors.org" http://127.0.0.1/
+
+# Edge proxy → admin
+curl -I -H "Host: admin.visionmentors.org" http://127.0.0.1/
+
+# API health via public hostname routing
+curl -s -H "Host: visionmentors.org" http://127.0.0.1/api/v1/health
+
+# Recent logs if anything fails
+docker compose logs --tail=50 proxy
+docker compose logs --tail=50 backend
+docker compose logs --tail=50 ngo-website
+docker compose logs --tail=50 admin
+```
+
+### Step 9 — Verify in the browser (after DNS propagates)
+
+- https://visionmentors.org
+- https://admin.visionmentors.org
+- https://visionmentors.org/api/v1/health
+
+---
+
+## 6. Useful Docker commands
+
+| Task | Command |
+|------|---------|
+| Start all services | `docker compose up -d` |
+| Stop all services | `docker compose down` |
+| Rebuild and restart | `docker compose up -d --build` |
+| Rebuild one service | `docker compose up -d --build backend` |
+| View all logs | `docker compose logs -f` |
+| Backend logs only | `docker compose logs -f backend` |
+| Restart one service | `docker compose restart backend` |
+| Run migrations manually | `docker compose exec backend npx prisma migrate deploy` |
+| Import images | `docker compose exec backend node scripts/import-content.js` |
+| Seed database | `docker compose exec backend npx prisma db seed` |
+| Shell into backend | `docker compose exec backend sh` |
+| PostgreSQL shell | `docker compose exec postgres psql -U dan -d vision` |
+
+---
+
+## 7. Updating production
+
+```bash
+cd /opt/dan
+git pull
+docker compose build
+docker compose up -d
+```
+
+If you changed `VITE_API_URL` or `FRONTEND_URL` in `.env`, rebuild the frontends:
+
+```bash
+docker compose build ngo-website admin
+docker compose up -d ngo-website admin backend
+```
+
+If new gallery or page images were added in the repo:
+
+```bash
+docker compose exec backend node scripts/import-content.js
+```
+
+---
+
+## 8. Local development without edge proxy
+
+```bash
+cp docker-compose.override.example.yml docker-compose.override.yml
+docker compose up -d --build
+```
+
+This exposes ports 5000, 5173, 5174 directly and skips the `proxy` container.
+
+For day-to-day dev, use `npm run dev` in each app folder instead.
+
+---
+
+## 9. Backups
+
+```bash
+cd /opt/dan
+
+# Database dump
+docker compose exec -T postgres pg_dump -U dan vision > backup-$(date +%F).sql
+
+# Uploads volume
+docker run --rm -v dan_uploads_data:/data -v $(pwd):/backup alpine \
+  tar czf /backup/uploads-$(date +%F).tar.gz -C /data .
+```
+
+---
+
+## 10. Troubleshooting
+
+### Site loads but API fails
+
+```bash
+docker compose logs backend
+docker compose up -d --build ngo-website admin
+```
+
+Confirm `.env` has `VITE_API_URL=/api/v1`.
+
+### CORS errors
+
+`FRONTEND_URL` must list exact origins (no trailing slash):
+
+```env
+FRONTEND_URL=https://visionmentors.org,https://admin.visionmentors.org
+```
+
+Then restart backend:
+
+```bash
+docker compose restart backend
+```
+
+### 502 Bad Gateway
+
+```bash
+docker compose ps
+docker compose logs proxy backend ngo-website admin
+docker compose restart backend proxy
+```
+
+### Cloudflare 521 / 522 (origin down)
+
+- VPS firewall allows port 80: `ufw status`
+- Proxy is running: `docker compose ps proxy`
+- Cloudflare DNS A records point to `5.189.178.15`
+
+### Backend won't start / migration errors
+
+```bash
+docker compose logs backend
+docker compose exec backend npx prisma migrate deploy
+```
+
+### Images missing after deploy
+
+```bash
+docker compose exec backend node scripts/import-content.js
+```
+
+### Out of memory during build
+
+Build services one at a time:
+
+```bash
+docker compose build backend && docker compose build ngo-website && docker compose build admin
 docker compose up -d
 ```
 
 ---
 
-## 12. Hostinger-specific tips
+## 11. Quick checklist
 
-- Use the **VPS** product, not shared web hosting — this stack needs Docker and custom nginx config.
-- SSH access is under **VPS → Manage → SSH Access** in hPanel.
-- If you use Hostinger’s firewall panel, allow ports **22**, **80**, and **443** only.
-- Back up the Postgres volume regularly:
-
-  ```bash
-  docker compose exec postgres pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" > backup.sql
-  ```
-
----
-
-## Quick checklist
-
-- [ ] VPS provisioned with Ubuntu
-- [ ] Docker and Docker Compose installed
+- [ ] VPS with Docker and Docker Compose installed
 - [ ] Repository cloned to `/opt/dan`
-- [ ] `.env` created with strong secrets
-- [ ] DNS A records for `@`, `www`, `api`, `admin`
-- [ ] `docker compose up -d --build` succeeds
-- [ ] Host nginx reverse proxy configured
-- [ ] SSL certificates issued with Certbot
-- [ ] PostgreSQL port not exposed publicly
-- [ ] Health check: `https://api.yourdomain.com/api/v1/health`
+- [ ] `.env` created with strong `POSTGRES_PASSWORD` and `JWT_SECRET`
+- [ ] Cloudflare A records: `@`, `www`, `admin` → `5.189.178.15` (proxied)
+- [ ] Cloudflare SSL: **Full** + **Always Use HTTPS**
+- [ ] Cache bypass for `/api/` and `/uploads/`
+- [ ] `docker compose build` succeeds
+- [ ] `docker compose up -d` — all containers running
+- [ ] `docker compose exec backend node scripts/import-content.js` completed
+- [ ] `docker compose exec backend npx prisma db seed` completed (first deploy)
+- [ ] https://visionmentors.org/api/v1/health returns OK

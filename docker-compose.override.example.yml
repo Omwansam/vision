@@ -1,0 +1,27 @@
+# Local development — optional Docker overrides
+#
+# Copy when you need direct port access without the edge proxy:
+#   cp docker-compose.override.example.yml docker-compose.override.yml
+#
+# docker-compose.override.yml is gitignored.
+
+services:
+  postgres:
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+
+  backend:
+    ports:
+      - "${BACKEND_PORT:-5000}:5000"
+
+  ngo-website:
+    ports:
+      - "${NGO_WEBSITE_PORT:-5173}:80"
+
+  admin:
+    ports:
+      - "${ADMIN_PORT:-5174}:80"
+
+  proxy:
+    profiles:
+      - production
