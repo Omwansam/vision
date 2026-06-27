@@ -4,12 +4,11 @@ WORKDIR /app
 
 RUN apk add --no-cache openssl
 
+# Prisma schema must exist before `npm ci` — postinstall runs `prisma generate`.
 COPY package.json package-lock.json ./
-RUN npm ci
-
 COPY prisma ./prisma
 COPY prisma.config.ts ./
-RUN npx prisma generate
+RUN npm ci
 
 COPY . .
 
