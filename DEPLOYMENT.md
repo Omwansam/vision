@@ -49,11 +49,28 @@ ufw enable
 
 ## 2. Clone the project
 
+`ngo-website` is a **git submodule** (separate repo: `ngo-system`). Clone with submodules:
+
 ```bash
 cd /opt
-git clone https://github.com/Omwansam/vision.git dan
+git clone --recurse-submodules https://github.com/Omwansam/vision.git dan
 cd dan
 ```
+
+If you already cloned without submodules:
+
+```bash
+cd /opt/dan
+git submodule update --init --recursive
+```
+
+Confirm Docker files exist before building:
+
+```bash
+ls -la ngo-website/Dockerfile ngo-website/nginx.conf
+```
+
+If `Dockerfile` is missing, see **§10 — ngo-website Dockerfile missing** (quick fix on the VPS).
 
 ---
 
@@ -370,6 +387,114 @@ docker compose exec backend npx prisma migrate deploy
 
 ```bash
 docker compose exec backend node scripts/import-content.js
+```
+
+### ngo-website Dockerfile missing
+
+Error: `target ngo-website: failed to read dockerfile: open Dockerfile: no such file or directory`
+
+The Docker files exist in your dev copy but may not be pushed to the `ngo-system` submodule yet. **Quick fix on the VPS** — create the three files manually:
+
+```bash
+cd /opt/dan/ngo-website
+
+cat > Dockerfile << 'EOF'
+FROM node:22-bookworm-slim AS build
+
+WORKDIR /app
+
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
+
+COPY package.json package-lock.json ./
+RUN npm install
+
+COPY . .
+RUN npm run build
+
+FROM nginx:1.27-alpine
+
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /app/dist /usr/share/nginx/html
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]
+EOF
+
+cat > .dockerignore << 'EOF'
+node_modules
+dist
+dist-ssr
+.env
+.env.*
+.git
+.gitignore
+README.md
+npm-debug.log
+*.pem
+*.key
+EOF
+
+cat > nginx.conf << 'EOF'
+server {
+    listen 80;
+    server_name localhost;
+    root /usr/share/nginx/html;
+    index index.html;
+
+    client_max_body_size 12M;
+
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml image/svg+xml;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    location /assets/ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+
+    location /uploads/ {
+        proxy_pass http://backend:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_read_timeout 120s;
+    }
+
+    location /api/ {
+        proxy_pass http://backend:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_read_timeout 120s;
+    }
+}
+EOF
+
+cd /opt/dan
+docker compose build
+```
+
+**Permanent fix on your dev machine** (so future clones work):
+
+```bash
+cd ngo-website
+git add Dockerfile nginx.conf .dockerignore
+git commit -m "Add Docker and nginx config for production deploy"
+git push origin main
+
+cd ..
+git add ngo-website .gitmodules
+git commit -m "Track ngo-website submodule with Docker deploy files"
+git push origin main
 ```
 
 ### Out of memory during build
