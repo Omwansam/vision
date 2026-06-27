@@ -124,9 +124,25 @@ In the Cloudflare dashboard for **visionmentors.org**:
 
 ### SSL/TLS settings
 
-1. **SSL/TLS → Overview**: set encryption mode to **Full**
-2. **SSL/TLS → Edge Certificates**: enable **Always Use HTTPS**
-3. **Rules → Cache Rules** (recommended):
+Cloudflare **Full** mode connects to your VPS on **port 443 (HTTPS)**. The edge proxy must have an origin certificate.
+
+1. **Generate origin SSL on the VPS** (once, before or after first deploy):
+
+```bash
+cd /opt/dan
+bash deploy/nginx/setup-origin-ssl.sh
+docker compose up -d proxy
+```
+
+2. **SSL/TLS → Overview**: set encryption mode to **Full** (not Full strict unless you use a Cloudflare Origin Certificate)
+3. **SSL/TLS → Edge Certificates**: enable **Always Use HTTPS**
+4. Open port **443** on the VPS firewall if you use `ufw`:
+
+```bash
+ufw allow 443/tcp
+```
+
+5. **Rules → Cache Rules** (recommended):
    - URI Path starts with `/api/` → **Bypass cache**
    - URI Path starts with `/uploads/` → **Bypass cache**
 
