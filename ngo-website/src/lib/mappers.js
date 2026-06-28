@@ -1,5 +1,6 @@
 import { BookOpen, Heart, Users } from 'lucide-react'
 import { displayImage, mediaUrl } from '@/lib/mediaUrl'
+import { site as fallbackSite } from '@/data/site'
 
 const ICON_MAP = {
   BookOpen,
@@ -181,14 +182,14 @@ export function mapSiteSettings(settings) {
     shortName: settings.shortName,
     tagline: settings.tagline,
     description: settings.description,
-    email: settings.email,
-    tendersEmail: settings.tendersEmail,
-    phone: settings.phone,
-    addressLine1: settings.addressLine1,
-    addressLine2: settings.addressLine2,
+    email: settings.email || fallbackSite.email,
+    tendersEmail: settings.tendersEmail || fallbackSite.tendersEmail,
+    phone: settings.phone || fallbackSite.phone,
+    addressLine1: settings.addressLine1 || fallbackSite.address.line1,
+    addressLine2: settings.addressLine2 || fallbackSite.address.line2,
     address: {
-      line1: settings.addressLine1,
-      line2: settings.addressLine2,
+      line1: settings.addressLine1 || fallbackSite.address.line1,
+      line2: settings.addressLine2 || fallbackSite.address.line2,
     },
     officeHours: settings.officeHours,
     heroImageUrl: settings.heroImageUrl,

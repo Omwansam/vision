@@ -126,14 +126,26 @@ export default function About() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-12">
               <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">Leadership Team</h2>
-              <p className="text-lg text-muted-foreground">Experienced professionals committed to our mission</p>
+              <p className="text-lg text-muted-foreground">Committed leaders guiding our mission, governance, and community impact</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               {[
-                { name: 'Sarah Chen', title: 'Executive Director', bio: '20+ years in humanitarian work across Africa and Asia. MBA from Harvard Kennedy School.' },
-                { name: 'James Okafor', title: 'Programs Director', bio: 'Community development expert with deep roots in East Africa. Led programs serving 100,000+ beneficiaries.' },
-                { name: 'Dr. Amara Diop', title: 'Impact & Accountability Officer', bio: 'PhD in Development Economics. Pioneered transparent impact measurement frameworks for NGOs.' },
+                {
+                  name: 'Belynder Umijah',
+                  title: 'Chair Lady',
+                  bio: 'Provides visionary leadership and strategic direction, championing community-centered programs that create lasting change across Kenya.',
+                },
+                {
+                  name: 'George Bush',
+                  title: 'Secretary',
+                  bio: 'Keeps our organization well-coordinated and transparent, ensuring clear communication, strong records, and smooth day-to-day governance.',
+                },
+                {
+                  name: 'Alice Shitote',
+                  title: 'Treasurer',
+                  bio: 'Oversees financial stewardship with integrity and care, helping ensure resources are managed responsibly and directed where they matter most.',
+                },
               ].map((member) => (
                 <Card key={member.name} className="p-6 text-center">
                   <div className="w-24 h-24 bg-gradient-to-br from-primary to-secondary rounded-full mx-auto mb-4" />

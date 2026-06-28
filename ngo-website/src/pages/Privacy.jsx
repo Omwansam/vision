@@ -1,6 +1,7 @@
 import { PageLayout } from '@/components/PageLayout'
 import { LegalContent } from '@/components/LegalContent'
 import { usePageMeta } from '@/hooks/usePageMeta'
+import { site } from '@/data/site'
 
 export default function Privacy() {
   usePageMeta('Privacy Policy - Vision Mentors Group')
@@ -50,7 +51,7 @@ export default function Privacy() {
         <section>
           <h2>6. Contact</h2>
           <p>
-            For privacy-related questions, email info@visionmentorsgroup.org or write to Vision Mentors Group, Africa REIT House, Karen, 2nd Floor, Nairobi, Kenya.
+            For privacy-related questions, email {site.email} or write to {site.name}, {site.address.line1}, {site.address.line2}.
           </p>
         </section>
       </LegalContent>

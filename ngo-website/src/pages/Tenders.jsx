@@ -10,6 +10,7 @@ import { useApiData } from '@/hooks/useApiData'
 import { api } from '@/lib/api'
 import { mapTender } from '@/lib/mappers'
 import { tenderProcessSteps, tenders as fallbackTenders, tenderFaqs } from '@/data/tenders'
+import { site } from '@/data/site'
 import {
   FileText,
   Download,
@@ -19,6 +20,7 @@ import {
   AlertCircle,
   Award,
   Mail,
+  Phone,
   Shield,
   Scale,
 } from 'lucide-react'
@@ -346,13 +348,20 @@ export default function Tenders() {
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
+                    <Phone size={18} className="text-primary mt-0.5" />
+                    <div>
+                      <p className="font-medium text-foreground">Phone</p>
+                      <p className="text-muted-foreground">{site.phone}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
                     <MapPin size={18} className="text-primary mt-0.5" />
                     <div>
                       <p className="font-medium text-foreground">Submission Address</p>
                       <p className="text-muted-foreground">
-                        Vision Mentors Group<br />
-                        Africa REIT House, Karen<br />
-                        2nd Floor, Nairobi, Kenya
+                        {site.name}<br />
+                        {site.address.line1}<br />
+                        {site.address.line2}
                       </p>
                     </div>
                   </div>

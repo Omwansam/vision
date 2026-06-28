@@ -9,6 +9,7 @@ import { useApiData } from '@/hooks/useApiData'
 import { api } from '@/lib/api'
 import { mapSiteSettings } from '@/lib/mappers'
 import { site as fallbackSite } from '@/data/site'
+import { getSiteContact } from '@/lib/utils'
 
 export default function Contact() {
   const [form, setForm] = useState({
@@ -32,6 +33,7 @@ export default function Contact() {
     }
   }, [])
   const site = data ?? fallbackSite
+  const contact = getSiteContact(site)
 
   usePageMeta('Contact - Vision Mentors Group')
 
@@ -65,10 +67,10 @@ export default function Contact() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
               {[
-                { icon: Phone, title: 'Phone', detail: site.phone, subtext: site.officeHours },
-                { icon: Mail, title: 'Email', detail: site.email, subtext: 'Typically responds within 24 hours' },
-                { icon: MapPin, title: 'Headquarters', detail: site.addressLine1 || 'Karen, Nairobi', subtext: site.addressLine2 || 'Africa REIT House, 2nd Floor' },
-                { icon: Clock, title: 'Office Hours', detail: 'Mon - Fri', subtext: site.officeHours || '9:00 AM - 5:00 PM EAT' },
+                { icon: Phone, title: 'Phone', detail: contact.phone, subtext: contact.officeHours },
+                { icon: Mail, title: 'Email', detail: contact.email, subtext: 'Typically responds within 24 hours' },
+                { icon: MapPin, title: 'Headquarters', detail: contact.addressLine1, subtext: contact.addressLine2 },
+                { icon: Clock, title: 'Office Hours', detail: 'Mon - Fri', subtext: contact.officeHours },
               ].map((contact) => {
                 const Icon = contact.icon
                 return (

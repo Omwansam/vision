@@ -6,10 +6,10 @@ export const site = {
     'Partnering with communities in Kenya to improve learning outcomes, strengthen health & well-being, and build resilience through evidence-based programs.',
   email: 'info@visionmentorsgroup.org',
   tendersEmail: 'tenders@visionmentorsgroup.org',
-  phone: '+254 (0) 712 345 678',
+  phone: '0725 979 717 · 0732 990 172',
   address: {
-    line1: 'Africa REIT House, Karen',
-    line2: '2nd Floor, Nairobi, Kenya',
+    line1: 'Muthaiga View Place, off Thika Road',
+    line2: 'Muthaiga, Ground Floor, Wing 103',
   },
   social: [
     { label: 'Facebook', href: 'https://facebook.com' },

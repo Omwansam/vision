@@ -111,7 +111,7 @@ export default function Home() {
           <AnimationWrapper animation="slide-up" delay={0}>
             <div className="max-w-3xl">
               <p className="text-white/90 text-sm font-semibold uppercase tracking-wider mb-4">
-                Vision Mentors Group · Kenya
+                Vision Mentors Program
               </p>
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 text-white leading-tight text-balance">
                 Education, Health & Resilience

@@ -5,6 +5,7 @@ import { useApiData } from '@/hooks/useApiData'
 import { api } from '@/lib/api'
 import { mapSiteSettings } from '@/lib/mappers'
 import { site as fallbackSite } from '@/data/site'
+import { parsePhoneNumbers, phoneToHref, getSiteContact } from '@/lib/utils'
 
 export function Footer() {
   const { data } = useApiData(async () => {
@@ -16,6 +17,7 @@ export function Footer() {
     }
   }, [])
   const site = data ?? fallbackSite
+  const contact = getSiteContact(site)
   return (
     <footer className="bg-foreground text-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14">
@@ -59,18 +61,24 @@ export function Footer() {
             <ul className="space-y-3 text-sm text-white/70">
               <li className="flex items-start gap-2">
                 <Phone size={16} className="mt-0.5 shrink-0" />
-                <a href={`tel:${site.phone.replace(/\s/g, '')}`} className="hover:text-white">{site.phone}</a>
+                <span className="space-y-1">
+                  {parsePhoneNumbers(contact.phone).map((number) => (
+                    <a key={number} href={phoneToHref(number)} className="block hover:text-white">
+                      {number}
+                    </a>
+                  ))}
+                </span>
               </li>
               <li className="flex items-start gap-2">
                 <Mail size={16} className="mt-0.5 shrink-0" />
-                <a href={`mailto:${site.email}`} className="hover:text-white">{site.email}</a>
+                <a href={`mailto:${contact.email}`} className="hover:text-white">{contact.email}</a>
               </li>
               <li className="flex items-start gap-2">
                 <MapPin size={16} className="mt-0.5 shrink-0" />
-                <span>{site.address.line1}<br />{site.address.line2}</span>
+                <span>{contact.addressLine1}<br />{contact.addressLine2}</span>
               </li>
             </ul>
-            <p className="text-xs text-white/50 mt-4">{site.officeHours}</p>
+            <p className="text-xs text-white/50 mt-4">{contact.officeHours}</p>
           </div>
         </div>
 

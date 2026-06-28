@@ -97,6 +97,9 @@ async function importSiteImages() {
       getInvolvedImage1Url: '/uploads/general/gallery-1.jpg',
       getInvolvedImage2Url: '/uploads/general/gallery-2.jpg',
       logoImageUrl: '/uploads/general/vision-logo.png',
+      phone: '0725 979 717 · 0732 990 172',
+      addressLine1: 'Muthaiga View Place, off Thika Road',
+      addressLine2: 'Muthaiga, Ground Floor, Wing 103',
     },
     create: {
       id: 'site',
@@ -107,6 +110,9 @@ async function importSiteImages() {
       getInvolvedImage1Url: '/uploads/general/gallery-1.jpg',
       getInvolvedImage2Url: '/uploads/general/gallery-2.jpg',
       logoImageUrl: '/uploads/general/vision-logo.png',
+      phone: '0725 979 717 · 0732 990 172',
+      addressLine1: 'Muthaiga View Place, off Thika Road',
+      addressLine2: 'Muthaiga, Ground Floor, Wing 103',
     },
   });
 }
