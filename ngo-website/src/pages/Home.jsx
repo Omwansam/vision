@@ -101,21 +101,21 @@ export default function Home() {
   return (
     <PageLayout className="bg-gradient-to-b from-background via-white to-background">
       {/* Hero */}
-      <section className="relative overflow-hidden bg-[#091428] min-h-[min(100svh,52rem)] md:min-h-0 md:h-[36rem] lg:h-[40rem] flex items-end md:items-center">
+      <section className="relative overflow-hidden min-h-[26rem] sm:min-h-[30rem] md:h-[36rem] lg:h-[40rem] flex items-end md:items-center">
         <div
-          className="absolute inset-0 flex items-center justify-center md:block"
+          className="absolute inset-0"
           style={{ transform: offsetY ? `translateY(${offsetY * 0.5}px)` : undefined }}
         >
           <img
             src={heroImage}
             alt="Vision Mentors Group team in Kenya"
-            className="w-full h-full object-contain object-center md:object-cover md:object-[center_28%] max-md:max-h-[58svh] sm:max-md:max-h-[62svh]"
+            className="w-full h-full object-cover object-[center_32%] md:object-[center_28%]"
             fetchPriority="high"
             decoding="async"
             onError={handleUploadImageError}
           />
         </div>
-        <div className="absolute inset-0 bg-gradient-to-b from-[#0B1C3D]/55 via-[#0A4EDB]/35 to-[#0B1C3D]/92 md:from-[#0B1C3D]/75 md:via-[#0A4EDB]/55 md:to-[#0B1C3D]/80 pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#0B1C3D]/40 via-[#0A4EDB]/30 to-[#0B1C3D]/88 md:from-[#0B1C3D]/75 md:via-[#0A4EDB]/55 md:to-[#0B1C3D]/80 pointer-events-none" />
 
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full py-8 sm:py-10 md:py-12 pb-[max(2rem,env(safe-area-inset-bottom))]">
           <AnimationWrapper animation="slide-up" delay={0}>
