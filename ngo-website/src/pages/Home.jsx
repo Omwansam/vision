@@ -88,42 +88,52 @@ export default function Home() {
   usePageMeta('Vision Mentors Group')
 
   useEffect(() => {
-    const handleScroll = () => setOffsetY(window.scrollY)
-    window.addEventListener('scroll', handleScroll)
+    const handleScroll = () => {
+      if (window.matchMedia('(min-width: 768px)').matches) {
+        setOffsetY(window.scrollY)
+      }
+    }
+    handleScroll()
+    window.addEventListener('scroll', handleScroll, { passive: true })
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
   return (
     <PageLayout className="bg-gradient-to-b from-background via-white to-background">
       {/* Hero */}
-      <section className="relative h-[38rem] md:h-[34rem] flex items-center overflow-hidden">
-        <div className="absolute inset-0" style={{ transform: `translateY(${offsetY * 0.5}px)` }}>
+      <section className="relative overflow-hidden bg-[#091428] min-h-[min(100svh,52rem)] md:min-h-0 md:h-[36rem] lg:h-[40rem] flex items-end md:items-center">
+        <div
+          className="absolute inset-0 flex items-center justify-center md:block"
+          style={{ transform: offsetY ? `translateY(${offsetY * 0.5}px)` : undefined }}
+        >
           <img
             src={heroImage}
             alt="Vision Mentors Group team in Kenya"
-            className="w-full h-full object-cover object-center"
+            className="w-full h-full object-contain object-center md:object-cover md:object-[center_28%] max-md:max-h-[58svh] sm:max-md:max-h-[62svh]"
+            fetchPriority="high"
+            decoding="async"
             onError={handleUploadImageError}
           />
         </div>
-        <div className="absolute inset-0 bg-gradient-to-b from-[#0B1C3D]/75 via-[#0A4EDB]/55 to-[#0B1C3D]/80" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#0B1C3D]/55 via-[#0A4EDB]/35 to-[#0B1C3D]/92 md:from-[#0B1C3D]/75 md:via-[#0A4EDB]/55 md:to-[#0B1C3D]/80 pointer-events-none" />
 
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full py-12">
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full py-8 sm:py-10 md:py-12 pb-[max(2rem,env(safe-area-inset-bottom))]">
           <AnimationWrapper animation="slide-up" delay={0}>
             <div className="max-w-3xl">
-              <p className="text-white/90 text-sm font-semibold uppercase tracking-wider mb-4">
+              <p className="text-white/90 text-xs sm:text-sm font-semibold uppercase tracking-[0.12em] sm:tracking-wider mb-3 sm:mb-4">
                 Vision Mentors Program
               </p>
-              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 text-white leading-tight text-balance">
+              <h1 className="text-[1.65rem] leading-[1.15] min-[375px]:text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-4 sm:mb-6 text-white text-balance">
                 Education, Health & Resilience
               </h1>
-              <p className="text-lg md:text-xl text-white/95 mb-8 max-w-xl leading-relaxed">
+              <p className="text-[0.9375rem] sm:text-lg md:text-xl text-white/95 mb-6 sm:mb-8 max-w-xl leading-relaxed text-pretty">
                 We partner with communities in Kenya to create lasting change through evidence-based programs that empower families and strengthen local capacity.
               </p>
-              <div className="flex flex-col sm:flex-row gap-4">
-                <Button asChild size="lg" className="bg-primary hover:bg-primary/90">
+              <div className="flex flex-col min-[480px]:flex-row gap-3 sm:gap-4">
+                <Button asChild size="lg" className="w-full min-[480px]:w-auto bg-primary hover:bg-primary/90 min-h-11">
                   <Link to="/donate">Support Our Work</Link>
                 </Button>
-                <Button asChild size="lg" variant="outline" className="bg-white/10 border-white/30 text-white hover:bg-white/20">
+                <Button asChild size="lg" variant="outline" className="w-full min-[480px]:w-auto bg-white/10 border-white/30 text-white hover:bg-white/20 min-h-11">
                   <Link to="/programs">Explore Programs</Link>
                 </Button>
               </div>
