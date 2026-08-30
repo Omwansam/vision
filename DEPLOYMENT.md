@@ -438,3 +438,90 @@ docker compose up -d
 - [ ] `docker compose exec backend node scripts/import-content.js` completed
 - [ ] `docker compose exec backend npx prisma db seed` completed (first deploy)
 - [ ] https://visionmentors.org/api/v1/health returns OK
+
+
+All from /opt/dan on the server.
+
+Stop / start (preserves everything)
+
+docker compose stop          # stop all containers, keep them intact
+docker compose start         # bring the same containers back
+This is the one you want for routine maintenance — fastest, and nothing is rebuilt or recreated.
+
+
+docker compose restart       # stop + start in one step
+docker compose restart backend   # single service
+Stop and remove containers
+
+docker compose down          # stop + remove containers and the network
+docker compose up -d         # recreate and start
+Named volumes (postgres_data, uploads_data) survive down, so your database and uploads are safe. Use this when you've changed .env or docker-compose.yml and need containers rebuilt from the new config.
+
+Per-service
+
+docker compose stop backend
+docker compose start backend
+
+docker compose up -d backend       # recreate just the backend
+docker compose up -d --build backend   # rebuild image first (after code changes)
+Note the dependency chain in docker-compose.yml: ngo-website, admin, and proxy all wait on backend being healthy. Stopping the backend alone will make the proxy return errors for /api/v1 while the frontends keep serving.
+
+Checking state
+
+docker compose ps            # what's running, and health status
+docker compose logs -f backend       # follow backend logs
+docker compose logs --tail=100 proxy
+Never run this casually
+
+docker compose down -v       # ⚠️ ALSO DELETES VOLUMES
+The -v flag destroys postgres_data and uploads_data — your entire database and every uploaded file. There's no undo. Back up first if you ever genuinely need it:
+
+
+docker compose exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' \
+  > ~/dan-backup-$(date +%F-%H%M).sql
+One gotcha with reboots
+Every service uses restart: unless-stopped. That "unless-stopped" is literal: once you run docker compose stop, Docker will not bring those containers back after a server reboot. You have to start them explicitly. If the site is ever down after a reboot, docker compose ps followed by docker compose up -d is the first thing to check.
+
+
+
+our nginx config uses resolver 127.0.0.11 with variable upstreams (visionmentors.conf:37-38), so the proxy stays up and just returns 502 for DAN routes when the app containers are down — it keeps serving your other sites fine. That makes "stop everything but proxy" safe.
+
+All from /opt/dan:
+
+1. Bring everything back up now
+
+
+docker compose start
+2. Stop the DAN stack, leave the proxy running
+
+
+docker compose stop backend ngo-website admin postgres
+Compose stops them in reverse-dependency order (backend before postgres), and proxy is untouched — depends_on only cascades downward, never up.
+
+Generic version if you add services later:
+
+
+docker compose stop $(docker compose config --services | grep -vx proxy)
+Start them again:
+
+
+docker compose start postgres backend ngo-website admin
+Commands to avoid now that proxy is shared
+
+Don't run	Why	Use instead
+docker compose stop	stops proxy → every domain on the box goes down	docker compose stop backend ngo-website admin postgres
+docker compose down	removes proxy container + network	docker compose rm -sf backend ngo-website admin postgres
+docker compose restart	bounces proxy too	docker compose restart backend ngo-website admin
+docker compose up -d	may recreate proxy if its config/image changed	docker compose up -d --no-recreate or name services explicitly
+If you need to apply an nginx change — reload instead of restarting, so other sites never drop a connection:
+
+
+docker compose exec proxy nginx -t        # validate first
+docker compose exec proxy nginx -s reload
+Rebuild after code changes, proxy untouched:
+
+
+docker compose up -d --build backend ngo-website admin
+Check state with docker compose ps — dan-proxy-1 should read Up in all of the above.
+
+Want me to append this as a "shared proxy" section to DEPLOYMENT.md? It fits right after the stop/start notes you've already added at the end.
