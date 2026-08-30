@@ -1,89 +1,150 @@
 # Deploying Vision Mentors Group — visionmentors.org
 
-Production stack: **Docker Compose** + **nginx edge proxy** + **Cloudflare** DNS/SSL.
+Production stack: **Docker Compose**, behind an **nginx edge proxy that this project does
+not own**, with **Cloudflare** in front for DNS and CDN.
 
 | URL | Service |
 |-----|---------|
 | https://visionmentors.org | Public website |
 | https://admin.visionmentors.org | Admin dashboard |
-| https://visionmentors.org/api/v1/… | API (proxied through the website nginx) |
+| https://visionmentors.org/api/v1/… | API |
 
-The API is **not** on a separate subdomain. Both frontends use `VITE_API_URL=/api/v1`, and nginx proxies `/api/` and `/uploads/` to the backend container.
-
----
-
-## Architecture
-
-```
-Internet → Cloudflare (HTTPS) → VPS :80 → proxy (nginx)
-                                              ├─ visionmentors.org      → ngo-website → backend (/api, /uploads)
-                                              └─ admin.visionmentors.org → admin       → backend (/api, /uploads)
-postgres (internal) ← backend
-uploads_data volume ← backend
-```
+The API is **not** on a separate subdomain. Both frontends are built with
+`VITE_API_URL=/api/v1`, so the browser always calls the same origin it loaded from, and the
+edge proxy routes `/api/`, `/uploads/` and `/branding/` to the backend.
 
 ---
 
-## 1. VPS requirements
+## 1. The shared host
 
-- **Ubuntu 22.04 or 24.04**
-- **2 vCPU, 4 GB RAM** minimum
-- Ports **22**, **80** open (443 optional on origin — Cloudflare terminates HTTPS)
+This stack is one of **three** tenants on the server, and it is not the one that owns
+ports 80 and 443.
 
-SSH into the server, then run:
+| Stack | Location | Owns |
+|-------|----------|------|
+| FIBI (`fibicommunity.org`) | `/opt/fibi/FIBI` | **the edge proxy**, `fibi-proxy-1`, ports 80 + 443, and the Let's Encrypt volume |
+| DraftBit (`draftbitlabs.tech`) | `/srv/draftbit` | its own app containers |
+| **Vision Mentors (this)** | **`/srv/dan/vision`** | its own app containers |
+
+```
+Internet → Cloudflare → :80/:443 → fibi-proxy-1 (nginx, /opt/fibi/FIBI)
+                                     ├─ fibicommunity.org        → FIBI stack
+                                     ├─ draftbitlabs.tech        → DraftBit stack
+                                     ├─ visionmentors.org        → dan-website ─┐
+                                     └─ admin.visionmentors.org  → dan-admin ───┤
+                                        /api/ /uploads/ /branding/ → dan-backend ┘
+                                                                        │
+                                            dan-postgres ───────────────┘
+                                            uploads volume ─────────────┘
+```
+
+### How this stack attaches to that proxy
+
+Three moving parts, all already in place:
+
+1. **`docker-compose.override.yml`** (server-only, gitignored) parks this project's own
+   `proxy` service behind a `standalone-only` profile so it never starts, and joins
+   `backend`, `ngo-website` and `admin` to the external `fibi_internal` network.
+2. **`/srv/dan/deploy/vhosts/`** holds this site's nginx server blocks. It is bind-mounted
+   read-only into the shared proxy at `/etc/nginx/conf.d/vhosts-dan`, which
+   `/opt/fibi/FIBI/deploy/nginx.conf` pulls in with a glob.
+3. **Aliases.** Every service is addressed as `dan-*`, never by its bare service name.
+
+That third point is not cosmetic — see below.
+
+### Never use bare service names on this host
+
+Docker's embedded DNS answers a service name with **every** container carrying it, across
+every network the querying container is attached to. All three stacks on this box call
+their API service `backend` and two call their database `postgres`. An unprefixed name
+silently becomes a multi-member round-robin pool spanning unrelated applications — FIBI hit
+exactly this once, and half its API requests were answered by a neighbour's API.
+
+So `docker-compose.yml` gives every service a unique alias on the `dan` network, and
+everything addresses those:
+
+| Service | Alias | Addressed by |
+|---------|-------|--------------|
+| `postgres` | `dan-postgres` | `DATABASE_URL` |
+| `backend` | `dan-backend` | the edge vhost, and both frontends' internal nginx |
+| `ngo-website` | `dan-website` | the edge vhost |
+| `admin` | `dan-admin` | the edge vhost |
+
+The aliases live in the **base** compose file, not the override, so a standalone deploy
+resolves the same names and the frontend images are byte-identical either way.
+
+Verify at any time — each must return exactly one address:
 
 ```bash
-apt update && apt upgrade -y
-apt install -y git curl ufw
-curl -fsSL https://get.docker.com | sh
-systemctl enable docker
-systemctl start docker
-apt install -y docker-compose-plugin
-docker compose version
-ufw allow OpenSSH
-ufw allow 80/tcp
-ufw enable
+for n in dan-postgres dan-backend dan-website dan-admin; do
+  printf '%-14s ' "$n"; docker exec fibi-proxy-1 getent hosts "$n" | awk '{printf "%s ", $1}'; echo
+done
 ```
 
 ---
 
-## 2. Clone the project
+## 2. Layout on the server
 
-```bash
-cd /opt
-git clone https://github.com/Omwansam/vision.git dan
-cd dan
+```
+/srv/dan/
+├── vision/                     the git checkout — `git pull` territory
+│   ├── .env                    secrets, chmod 600, gitignored
+│   ├── docker-compose.override.yml   shared-proxy adaptation, gitignored
+│   └── …
+└── deploy/                     deliberately OUTSIDE the checkout, so `git pull`
+    ├── vhosts/                 can never revert or delete it
+    │   └── 10-dan-http.conf    port 80: ACME + redirect to HTTPS
+    │   └── 20-dan-https.conf   port 443: the three server blocks
+    └── vhosts-pending/         staging for a vhost whose certificate is not yet issued
 ```
 
-Confirm Docker files exist before building:
-
-```bash
-ls -la ngo-website/Dockerfile BACKEND/Dockerfile admin-client/admin/Dockerfile
-```
+Compose project name is pinned to `dan` in the override. Without it the project would be
+named after the directory (`vision`) and the containers and volumes would not match the
+`dan-*` names used everywhere else. Containers are `dan-backend-1` etc.; volumes are
+`dan_postgres_data` and `dan_uploads_data`.
 
 ---
 
-## 3. Create `.env`
+## 3. First deploy, start to finish
+
+### 3.1 Code
+
+The repo is private and the server has no push credentials, and `BACKEND/prisma/seed.js` is
+gitignored — so the seed file is copied separately, every time it changes.
+
+```bash
+cd /srv/dan/vision
+git pull --ff-only origin main
+```
+
+```bash
+# from your workstation
+scp BACKEND/prisma/seed.js fibidev@2.24.114.80:/srv/dan/vision/BACKEND/prisma/seed.js
+```
+
+### 3.2 `.env`
 
 ```bash
 cp .env.example .env
-nano .env
+chmod 600 .env
 ```
 
-Generate two strong secrets (run twice, use one for each variable):
+Generate the two secrets separately:
 
 ```bash
-openssl rand -base64 48
+openssl rand -hex 32        # POSTGRES_PASSWORD — hex, not base64
+openssl rand -base64 48     # JWT_SECRET
 ```
 
-### Required `.env` values
+`POSTGRES_PASSWORD` must be **hex or otherwise URL-safe**. It is interpolated straight into
+`DATABASE_URL`, where base64's `+` and `/` would have to be percent-encoded and will
+otherwise break the connection string.
+
+Required values:
 
 ```env
 POSTGRES_USER=dan
-POSTGRES_PASSWORD=PASTE_FIRST_SECRET_HERE
 POSTGRES_DB=vision
-
-JWT_SECRET=PASTE_SECOND_SECRET_HERE
 JWT_EXPIRES_IN=7d
 
 FRONTEND_URL=https://visionmentors.org,https://admin.visionmentors.org
@@ -91,437 +152,247 @@ VITE_API_URL=/api/v1
 WEBSITE_URL=https://visionmentors.org
 BACKEND_URL=https://visionmentors.org
 
-HTTP_PORT=80
+SEED_ADMIN_EMAIL=admin@visionmentorsgroup.org
+SEED_ADMIN_PASSWORD=<set this — the seed silently falls back to `changeme123`>
 
-# SMTP — fill in for live email notifications
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=465
-SMTP_SECURE=true
-SMTP_USER=your@gmail.com
-SMTP_PASS=your-app-password
-SMTP_FROM=your@gmail.com
-SMTP_FROM_NAME=Vision Mentors Group
-ADMIN_NOTIFICATION_EMAIL=info@visionmentors.org
+INIT_CONTENT=false
 ```
 
-Save and exit (`Ctrl+O`, `Enter`, `Ctrl+X` in nano).
+`HTTP_PORT` / `HTTPS_PORT` are unused here; nothing in this project binds a host port.
 
----
+### 3.3 Build and start
 
-## 4. Cloudflare DNS
-
-In the Cloudflare dashboard for **visionmentors.org**:
-
-### DNS records (proxied — orange cloud ON)
-
-| Type | Name | Content | Proxy |
-|------|------|---------|-------|
-| A | `@` | `5.189.178.15` | Proxied |
-| A | `www` | `5.189.178.15` | Proxied |
-| A | `admin` | `5.189.178.15` | Proxied |
-
-`www` redirects to `visionmentors.org` at the nginx edge.
-
-### SSL/TLS settings
-
-Cloudflare **Full** mode connects to your VPS on **port 443 (HTTPS)**. The edge proxy must have an origin certificate.
-
-1. **Generate origin SSL on the VPS** (once, before or after first deploy):
+Build one service at a time. The box has 2 vCPU and **no swap**, and the two Vite builds
+are the memory peak.
 
 ```bash
-cd /opt/dan
-bash deploy/nginx/setup-origin-ssl.sh
-docker compose up -d proxy
-```
-
-2. **SSL/TLS → Overview**: set encryption mode to **Full** (not Full strict unless you use a Cloudflare Origin Certificate)
-3. **SSL/TLS → Edge Certificates**: enable **Always Use HTTPS**
-4. Open port **443** on the VPS firewall if you use `ufw`:
-
-```bash
-ufw allow 443/tcp
-```
-
-5. **Rules → Cache Rules** (recommended):
-   - URI Path starts with `/api/` → **Bypass cache**
-   - URI Path starts with `/uploads/` → **Bypass cache**
-
----
-
-## 5. Deploy manually with Docker
-
-All commands below are run from the project root on the VPS:
-
-```bash
-cd /opt/dan
-```
-
-### Step 1 — Build all images
-
-```bash
-docker compose build
-```
-
-This builds `backend`, `ngo-website`, and `admin`. The `proxy` service uses the official `nginx:1.27-alpine` image (no build).
-
-To build one service at a time (if the VPS runs low on memory):
-
-```bash
+cd /srv/dan/vision
+docker compose config --services      # must NOT list `proxy`
 docker compose build backend
 docker compose build ngo-website
 docker compose build admin
-```
-
-### Step 2 — Start all containers
-
-```bash
 docker compose up -d
+docker compose ps                     # wait for backend => healthy
 ```
 
-This starts:
-
-| Container | Role |
-|-----------|------|
-| `postgres` | Database |
-| `backend` | API (runs `prisma migrate deploy` on startup) |
-| `ngo-website` | Public React site + nginx |
-| `admin` | Admin dashboard + nginx |
-| `proxy` | Edge nginx on port 80 |
-
-### Step 3 — Check containers are running
+Migrations run automatically from the entrypoint. Confirm the backend reached **its own**
+database, not a neighbour's:
 
 ```bash
-docker compose ps
+docker compose exec backend sh -c 'echo $DATABASE_URL'   # must say dan-postgres
+docker compose exec postgres psql -U dan -d vision -c '\dt'
 ```
 
-All services should show `running`. Wait until `backend` is `healthy` (may take 30–60 seconds on first start).
-
-### Step 4 — Follow backend logs (first deploy)
-
-Migrations run automatically when the backend starts. Watch for errors:
+Confirm the shared proxy can see all three, before any traffic is routed to them:
 
 ```bash
-docker compose logs -f backend
+docker exec fibi-proxy-1 wget -qO- http://dan-backend:5000/api/v1/health
+docker exec fibi-proxy-1 wget -qS -O /dev/null http://dan-website:80/
+docker exec fibi-proxy-1 wget -qS -O /dev/null http://dan-admin:80/
 ```
 
-Press `Ctrl+C` to stop following logs. You should see:
+### 3.4 Seed, then import content — in that order
 
-- `Running database migrations...`
-- `Starting API server...`
-
-### Step 5 — Confirm API health
+`seed.js` is excluded by `BACKEND/.dockerignore`, so it is not in the image and has to be
+copied into the running container:
 
 ```bash
-docker compose exec backend node -e "fetch('http://127.0.0.1:5000/api/v1/health').then(r=>r.json()).then(console.log)"
-```
-
-Or through the edge proxy:
-
-```bash
-curl -s -H "Host: visionmentors.org" http://127.0.0.1/api/v1/health
-```
-
-Expected: JSON with `"message": "VMG API is running"`.
-
-### Step 6 — Import gallery and page images (first deploy)
-
-Copies images into `uploads/` and updates the database. Safe to re-run:
-
-```bash
+docker compose cp BACKEND/prisma/seed.js backend:/app/prisma/seed.js
+docker compose exec backend node prisma/seed.js
 docker compose exec backend node scripts/import-content.js
 ```
 
-### Step 7 — Seed the database (first deploy)
+**The order matters and is easy to get wrong.** `import-content.js` resolves programs and
+news by slug and skips with a warning when the row is absent, so running it against an empty
+database imports gallery and site images only — programs and news keep placeholder artwork.
+Its output must read `Updated 3 program(s).` and `Updated 4 news article(s).`; zeroes mean
+it ran too early.
 
-`BACKEND/prisma/seed.js` may be gitignored. If you have it on the server (copy from your dev machine if needed):
+This is also why `INIT_CONTENT` stays `false`: setting it `true` makes the entrypoint run
+the import at container start, which is *before* any seed can have run.
+
+### 3.5 TLS
+
+Certificates are issued into the FIBI stack's `fibi_letsencrypt_certs` volume and renewed by
+its already-running `fibi-certbot-1`, which walks every lineage on that volume. The proxy
+reloads itself every 6 hours to pick renewals up. **Nothing site-specific has to be
+scheduled.**
+
+Issuance is HTTP-01 against the shared webroot, so the challenge has to reach this origin:
+
+1. In Cloudflare, point `@`, `www` and `admin` at the server IP and set all three to
+   **DNS only (grey cloud)**. With the orange cloud on, Cloudflare answers the challenge at
+   its own edge, or redirects it to a port 443 that has no certificate yet.
+2. Install `10-dan-http.conf` only. Its `/.well-known/acme-challenge/` block must sit
+   **above** the HTTPS redirect and must never be redirected — renewal happens exactly when
+   the current certificate is closest to expiring.
+3. Issue:
 
 ```bash
-docker compose exec backend npx prisma db seed
+docker run --rm \
+  -v fibi_letsencrypt_certs:/etc/letsencrypt \
+  -v fibi_certbot_webroot:/var/www/certbot \
+  certbot/certbot:latest certonly --webroot -w /var/www/certbot \
+  -d visionmentors.org -d www.visionmentors.org -d admin.visionmentors.org \
+  --email <a mailbox you read> --agree-tos --no-eff-email
 ```
 
-This creates the admin user, programs, news, site settings, etc. Set `SEED_ADMIN_EMAIL` and `SEED_ADMIN_PASSWORD` in `.env` before seeding if your seed script uses them.
+   Add `--staging` first if you are unsure: Let's Encrypt allows only 5 failed validations
+   per hostname per hour.
 
-### Step 8 — Verify each layer
+4. Move `20-dan-https.conf` into `vhosts/`, validate, reload:
 
 ```bash
-# All containers
-docker compose ps
-
-# Edge proxy → website
-curl -I -H "Host: visionmentors.org" http://127.0.0.1/
-
-# Edge proxy → admin
-curl -I -H "Host: admin.visionmentors.org" http://127.0.0.1/
-
-# API health via public hostname routing
-curl -s -H "Host: visionmentors.org" http://127.0.0.1/api/v1/health
-
-# Recent logs if anything fails
-docker compose logs --tail=50 proxy
-docker compose logs --tail=50 backend
-docker compose logs --tail=50 ngo-website
-docker compose logs --tail=50 admin
+mv /srv/dan/deploy/vhosts-pending/20-dan-https.conf /srv/dan/deploy/vhosts/
+docker exec fibi-proxy-1 nginx -t && docker exec fibi-proxy-1 nginx -s reload
 ```
 
-### Step 9 — Verify in the browser (after DNS propagates)
+5. Back in Cloudflare: re-enable the orange cloud on all three records, set SSL/TLS mode to
+   **Full (strict)**, and turn on **Always Use HTTPS**.
 
-- https://visionmentors.org
-- https://admin.visionmentors.org
-- https://visionmentors.org/api/v1/health
+The HTTPS vhost is kept in a separate file from the HTTP one, and staged in
+`vhosts-pending/` until the certificate exists, for one reason: **nginx refuses to start
+when a server block names a certificate that is not on disk.** Installing it early does not
+just break this site — it stops the shared proxy from booting and takes
+`fibicommunity.org` and `draftbitlabs.tech` down with it.
+
+### 3.6 Cloudflare cache
+
+Rules → Cache Rules:
+
+- URI Path starts with `/api/` → **Bypass cache**
+- URI Path starts with `/uploads/` → **Bypass cache**
+
+The `/uploads/` bypass gives up edge caching for uploaded media, but avoids stale images
+after an admin replaces a file under the same name.
 
 ---
 
-## 6. Useful Docker commands
+## 4. Routine operations
+
+All from `/srv/dan/vision`.
 
 | Task | Command |
 |------|---------|
-| Start all services | `docker compose up -d` |
-| Stop all services | `docker compose down` |
-| Rebuild and restart | `docker compose up -d --build` |
-| Rebuild one service | `docker compose up -d --build backend` |
-| View all logs | `docker compose logs -f` |
-| Backend logs only | `docker compose logs -f backend` |
-| Restart one service | `docker compose restart backend` |
-| Run migrations manually | `docker compose exec backend npx prisma migrate deploy` |
-| Import images | `docker compose exec backend node scripts/import-content.js` |
-| Seed database | `docker compose exec backend npx prisma db seed` |
-| Shell into backend | `docker compose exec backend sh` |
-| PostgreSQL shell | `docker compose exec postgres psql -U dan -d vision` |
+| Status | `docker compose ps` |
+| Follow API logs | `docker compose logs -f backend` |
+| Restart the API | `docker compose restart backend` |
+| Deploy code changes | `git pull && docker compose up -d --build` |
+| Rebuild frontends only | `docker compose up -d --build ngo-website admin` |
+| Run migrations by hand | `docker compose exec backend npx prisma migrate deploy` |
+| Re-import content images | `docker compose exec backend node scripts/import-content.js` |
+| Create an extra admin | `docker compose exec backend node scripts/create-admin.js --email x@y.z --generate` |
+| Postgres shell | `docker compose exec postgres psql -U dan -d vision` |
+
+`docker compose down` / `stop` / `restart` are all **safe** here: the `proxy` service is
+profile-disabled, so compose in this directory cannot touch the shared edge. (Earlier notes
+in this file warned otherwise — that applied to the previous server, where this project
+owned the proxy.) Named volumes survive `down`.
+
+After changing `VITE_API_URL` or `FRONTEND_URL`, the frontends must be **rebuilt**, not just
+restarted — those values are baked in at image build time:
+
+```bash
+docker compose build ngo-website admin && docker compose up -d ngo-website admin backend
+```
+
+### Changing nginx routing
+
+Edit the files in `/srv/dan/deploy/vhosts/`, then validate and reload. Never restart the
+proxy container for a config change — a reload is graceful and never drops a connection on
+the other two sites:
+
+```bash
+docker exec fibi-proxy-1 nginx -t
+docker exec fibi-proxy-1 nginx -s reload
+```
+
+`nginx -t` is not optional. A bad config that is only caught at *startup* leaves all three
+sites down until it is fixed.
+
+### Touching the shared proxy container
+
+Rare — only to add or remove a mount in `/opt/fibi/FIBI/docker-compose.yml`. It costs about
+two seconds of downtime **for every site on the box**, so back the file up, dry-run the
+rendered config first, and only then recreate:
+
+```bash
+docker run --rm --network fibi_internal \
+  -v /opt/fibi/FIBI/deploy/nginx.conf:/etc/nginx/templates/nginx.conf.template:ro \
+  -v /opt/fibi/FIBI/deploy/ssl-params.conf:/etc/nginx/conf.d/ssl-params.conf:ro \
+  -v /srv/draftbit/deploy/vhosts:/etc/nginx/conf.d/vhosts:ro \
+  -v /srv/dan/deploy/vhosts:/etc/nginx/conf.d/vhosts-dan:ro \
+  -v fibi_letsencrypt_certs:/etc/letsencrypt:ro \
+  -e DOMAIN=fibicommunity.org --entrypoint sh nginx:1.27-alpine -c \
+  'envsubst "\$DOMAIN" < /etc/nginx/templates/nginx.conf.template > /etc/nginx/nginx.conf \
+   && : > /etc/nginx/conf.d/realip.conf && nginx -t'
+
+cd /opt/fibi/FIBI && docker compose up -d --no-deps proxy
+```
+
+The `--network fibi_internal` is required: nginx resolves `upstream` hostnames at parse
+time, so off that network the test fails on names that are actually fine.
+
+### Reboots
+
+Every service is `restart: unless-stopped`, and that is literal — after an explicit
+`docker compose stop`, Docker will **not** bring the containers back after a reboot. If the
+site is down after one, `docker compose ps` then `docker compose up -d`.
 
 ---
 
-## 7. Updating production
+## 5. Backups
 
 ```bash
-cd /opt/dan
-git pull
-docker compose build
-docker compose up -d
-```
-
-If you changed `VITE_API_URL` or `FRONTEND_URL` in `.env`, rebuild the frontends:
-
-```bash
-docker compose build ngo-website admin
-docker compose up -d ngo-website admin backend
-```
-
-If new gallery or page images were added in the repo:
-
-```bash
-docker compose exec backend node scripts/import-content.js
-```
-
----
-
-## 8. Local development without edge proxy
-
-```bash
-cp docker-compose.override.example.yml docker-compose.override.yml
-docker compose up -d --build
-```
-
-This exposes ports 5000, 5173, 5174 directly and skips the `proxy` container.
-
-For day-to-day dev, use `npm run dev` in each app folder instead.
-
----
-
-## 9. Backups
-
-```bash
-cd /opt/dan
-
-# Database dump
-docker compose exec -T postgres pg_dump -U dan vision > backup-$(date +%F).sql
-
-# Uploads volume
-docker run --rm -v dan_uploads_data:/data -v $(pwd):/backup alpine \
-  tar czf /backup/uploads-$(date +%F).tar.gz -C /data .
-```
-
----
-
-## 10. Troubleshooting
-
-### Site loads but API fails
-
-```bash
-docker compose logs backend
-docker compose up -d --build ngo-website admin
-```
-
-Confirm `.env` has `VITE_API_URL=/api/v1`.
-
-### CORS errors
-
-`FRONTEND_URL` must list exact origins (no trailing slash):
-
-```env
-FRONTEND_URL=https://visionmentors.org,https://admin.visionmentors.org
-```
-
-Then restart backend:
-
-```bash
-docker compose restart backend
-```
-
-### 502 Bad Gateway
-
-```bash
-docker compose ps
-docker compose logs proxy backend ngo-website admin
-docker compose restart backend proxy
-```
-
-### Cloudflare 521 / 522 (origin down)
-
-- VPS firewall allows port 80: `ufw status`
-- Proxy is running: `docker compose ps proxy`
-- Cloudflare DNS A records point to `5.189.178.15`
-
-### Backend won't start / migration errors
-
-```bash
-docker compose logs backend
-docker compose exec backend npx prisma migrate deploy
-```
-
-### Images missing after deploy
-
-```bash
-docker compose exec backend node scripts/import-content.js
-```
-
-### Backend build fails at `npm ci` / `prisma generate`
-
-Error: `Could not find Prisma Schema` during `docker compose build backend`.
-
-Pull the latest code (the backend Dockerfile copies `prisma/` before `npm ci`):
-
-```bash
-cd /opt/dan
-git pull
-docker compose build backend
-```
-
-### ngo-website or admin build fails
-
-```bash
-cd /opt/dan
-git pull
-docker compose build ngo-website admin
-```
-
-### Out of memory during build
-
-Build services one at a time:
-
-```bash
-docker compose build backend && docker compose build ngo-website && docker compose build admin
-docker compose up -d
-```
-
----
-
-## 11. Quick checklist
-
-- [ ] VPS with Docker and Docker Compose installed
-- [ ] Repository cloned to `/opt/dan`
-- [ ] `.env` created with strong `POSTGRES_PASSWORD` and `JWT_SECRET`
-- [ ] Cloudflare A records: `@`, `www`, `admin` → `5.189.178.15` (proxied)
-- [ ] Cloudflare SSL: **Full** + **Always Use HTTPS**
-- [ ] Cache bypass for `/api/` and `/uploads/`
-- [ ] `docker compose build` succeeds
-- [ ] `docker compose up -d` — all containers running
-- [ ] `docker compose exec backend node scripts/import-content.js` completed
-- [ ] `docker compose exec backend npx prisma db seed` completed (first deploy)
-- [ ] https://visionmentors.org/api/v1/health returns OK
-
-
-All from /opt/dan on the server.
-
-Stop / start (preserves everything)
-
-docker compose stop          # stop all containers, keep them intact
-docker compose start         # bring the same containers back
-This is the one you want for routine maintenance — fastest, and nothing is rebuilt or recreated.
-
-
-docker compose restart       # stop + start in one step
-docker compose restart backend   # single service
-Stop and remove containers
-
-docker compose down          # stop + remove containers and the network
-docker compose up -d         # recreate and start
-Named volumes (postgres_data, uploads_data) survive down, so your database and uploads are safe. Use this when you've changed .env or docker-compose.yml and need containers rebuilt from the new config.
-
-Per-service
-
-docker compose stop backend
-docker compose start backend
-
-docker compose up -d backend       # recreate just the backend
-docker compose up -d --build backend   # rebuild image first (after code changes)
-Note the dependency chain in docker-compose.yml: ngo-website, admin, and proxy all wait on backend being healthy. Stopping the backend alone will make the proxy return errors for /api/v1 while the frontends keep serving.
-
-Checking state
-
-docker compose ps            # what's running, and health status
-docker compose logs -f backend       # follow backend logs
-docker compose logs --tail=100 proxy
-Never run this casually
-
-docker compose down -v       # ⚠️ ALSO DELETES VOLUMES
-The -v flag destroys postgres_data and uploads_data — your entire database and every uploaded file. There's no undo. Back up first if you ever genuinely need it:
-
+cd /srv/dan/vision
 
 docker compose exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' \
   > ~/dan-backup-$(date +%F-%H%M).sql
-One gotcha with reboots
-Every service uses restart: unless-stopped. That "unless-stopped" is literal: once you run docker compose stop, Docker will not bring those containers back after a server reboot. You have to start them explicitly. If the site is ever down after a reboot, docker compose ps followed by docker compose up -d is the first thing to check.
 
+docker run --rm -v dan_uploads_data:/data -v "$PWD":/backup alpine \
+  tar czf /backup/uploads-$(date +%F).tar.gz -C /data .
+```
 
+`docker compose down -v` destroys `dan_postgres_data` and `dan_uploads_data` — the entire
+database and every uploaded file, with no undo. There is no routine reason to use `-v`.
 
-our nginx config uses resolver 127.0.0.11 with variable upstreams (visionmentors.conf:37-38), so the proxy stays up and just returns 502 for DAN routes when the app containers are down — it keeps serving your other sites fine. That makes "stop everything but proxy" safe.
+---
 
-All from /opt/dan:
+## 6. Troubleshooting
 
-1. Bring everything back up now
+**502 on this site only.** The app containers are down; the proxy is fine and the other two
+sites are unaffected (the vhost uses named upstreams that simply fail to connect).
 
+```bash
+docker compose ps && docker compose logs --tail=50 backend
+```
 
-docker compose start
-2. Stop the DAN stack, leave the proxy running
+**The API returns another application's data, or "not found" for things that exist.**
+A bare service name has crept back into a config. Re-run the alias check in §1.
 
+**CORS errors.** `FRONTEND_URL` must list exact origins, no trailing slash, then
+`docker compose restart backend`.
 
-docker compose stop backend ngo-website admin postgres
-Compose stops them in reverse-dependency order (backend before postgres), and proxy is untouched — depends_on only cascades downward, never up.
+**Images missing after a deploy.** `docker compose exec backend node scripts/import-content.js`
+— and check its output says `Updated 3 program(s).`, not zero (§3.4).
 
-Generic version if you add services later:
+**Emails have broken artwork.** The `/branding/` location is missing from the vhost;
+`BACKEND_URL` links resolve to the SPA's `index.html` instead of the backend.
 
+**Certificate expiring.** Renewal is automatic. To check:
 
-docker compose stop $(docker compose config --services | grep -vx proxy)
-Start them again:
+```bash
+docker run --rm -v fibi_letsencrypt_certs:/etc/letsencrypt certbot/certbot:latest certificates
+docker logs --tail=50 fibi-certbot-1
+```
 
+**Cloudflare 521/522.** Origin unreachable: check `fibi-proxy-1` is up, and that the A
+records still point at this server.
 
-docker compose start postgres backend ngo-website admin
-Commands to avoid now that proxy is shared
+---
 
-Don't run	Why	Use instead
-docker compose stop	stops proxy → every domain on the box goes down	docker compose stop backend ngo-website admin postgres
-docker compose down	removes proxy container + network	docker compose rm -sf backend ngo-website admin postgres
-docker compose restart	bounces proxy too	docker compose restart backend ngo-website admin
-docker compose up -d	may recreate proxy if its config/image changed	docker compose up -d --no-recreate or name services explicitly
-If you need to apply an nginx change — reload instead of restarting, so other sites never drop a connection:
+## 7. Standalone deploy (a server of its own)
 
-
-docker compose exec proxy nginx -t        # validate first
-docker compose exec proxy nginx -s reload
-Rebuild after code changes, proxy untouched:
-
-
-docker compose up -d --build backend ngo-website admin
-Check state with docker compose ps — dan-proxy-1 should read Up in all of the above.
-
-Want me to append this as a "shared proxy" section to DEPLOYMENT.md? It fits right after the stop/start notes you've already added at the end.
+Everything above describes the shared host. On a box where this stack is alone, delete
+`docker-compose.override.yml`: the bundled `proxy` service comes back, binds 80/443, and
+uses `deploy/nginx/` — which is retained for exactly that case and is unused here.

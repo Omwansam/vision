@@ -1,0 +1,54 @@
+# Deployment override for a VPS where this is not the only tenant.
+#
+# This server already runs a FIBI stack in /opt/fibi/FIBI whose nginx container
+# owns ports 80 and 443, and a DraftBit stack in /srv/draftbit that reaches it
+# the same way this file does. Publishing 80/443 here would fail to bind — and a
+# partial success would take the other two sites offline. So this stack
+# publishes nothing: its containers join the existing proxy's network under
+# prefixed aliases, and that proxy gains a vhost per Vision Mentors domain
+# (/srv/dan/deploy/vhosts, mounted read-only into it).
+#
+# Compose loads this file automatically alongside docker-compose.yml. The base
+# file is left describing a standalone deployment.
+#
+# Deliberately gitignored: `git pull` in this checkout must never revert it.
+
+# Without this the project name would come from the directory (`vision`), and
+# the containers and volumes would not match the dan-* names used everywhere else.
+name: dan
+
+services:
+  # Parked behind a profile that is never enabled. The shared FIBI proxy does
+  # this job; a second one would contend for 80/443.
+  proxy:
+    profiles: ["standalone-only"]
+
+  # The three services the shared proxy must reach. Each keeps the internal
+  # `dan` network and gains the FIBI one purely so nginx can resolve it.
+  #
+  # postgres is deliberately absent: nothing outside this stack talks to it, and
+  # joining the shared network would put it a DNS lookup away from two other
+  # tenants.
+  backend:
+    networks:
+      dan: {}
+      fibi_internal:
+        aliases: [dan-backend]
+
+  ngo-website:
+    networks:
+      dan: {}
+      fibi_internal:
+        aliases: [dan-website]
+
+  admin:
+    networks:
+      dan: {}
+      fibi_internal:
+        aliases: [dan-admin]
+
+networks:
+  # Created by the FIBI stack. `external` means compose attaches to it and will
+  # never modify or remove it.
+  fibi_internal:
+    external: true
