@@ -17,7 +17,13 @@ services:
       retries: 10
       start_period: 10s
     networks:
-      - dan
+      dan:
+        # Addressed by this alias, never by the bare service name. On a shared
+        # host the `dan` network may sit alongside another stack's, and Docker's
+        # embedded DNS answers a service name with every container carrying it —
+        # so a neighbour that also calls its database `postgres` would silently
+        # become a second candidate for this backend's connection.
+        aliases: [dan-postgres]
 
   backend:
     build:
@@ -32,7 +38,7 @@ services:
     environment:
       PORT: 5000
       NODE_ENV: production
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@dan-postgres:5432/${POSTGRES_DB}
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
       FRONTEND_URL: ${FRONTEND_URL}
@@ -61,7 +67,8 @@ services:
       retries: 5
       start_period: 30s
     networks:
-      - dan
+      dan:
+        aliases: [dan-backend]
 
   ngo-website:
     build:
@@ -74,7 +81,8 @@ services:
       backend:
         condition: service_healthy
     networks:
-      - dan
+      dan:
+        aliases: [dan-website]
 
   admin:
     build:
@@ -87,7 +95,8 @@ services:
       backend:
         condition: service_healthy
     networks:
-      - dan
+      dan:
+        aliases: [dan-admin]
 
   proxy:
     image: nginx:1.27-alpine
